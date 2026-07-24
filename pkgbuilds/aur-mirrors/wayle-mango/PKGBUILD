@@ -25,7 +25,9 @@ optdepends=(
   'pipewire-pulse: PulseAudio compatibility for the audio modules'
   'wireplumber: PipeWire session management'
 )
-makedepends=('cargo' 'git' 'clang')
+# cmake + nasm are needed by aws-lc-sys (rustls crypto backend) to build its
+# bundled C library; without them linking fails on undefined aws_lc_* symbols.
+makedepends=('cargo' 'git' 'clang' 'cmake' 'nasm')
 provides=('wayle')
 conflicts=('wayle' 'wayle-bin' 'wayle-git')
 source=("$pkgname::git+$url.git#commit=$_commit")

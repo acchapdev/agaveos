@@ -10,7 +10,11 @@ RUN sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf
 RUN pacman -Syu --noconfirm --needed \
       base-devel git archiso grub dosfstools mtools rsync jq \
       pacman-contrib devtools namcap rustup \
+      cmake nasm \
     && pacman -Scc --noconfirm
+# cmake + nasm: aws-lc-sys (rustls crypto backend, pulled in by wayle-mango)
+# builds a bundled C crypto library and needs both, else linking fails with
+# undefined aws_lc_* symbols.
 
 # makepkg refuses to run as root; builds happen as this user.
 RUN useradd -m -G wheel builder \
