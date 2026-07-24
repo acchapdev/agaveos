@@ -92,19 +92,16 @@ for rel in "${packages[@]}"; do
   [ "${AGAVE_SIGN:-0}" = 1 ] && makepkg_args+=(--sign)
   if sudo -u builder env PKGDEST="$pkgdest" \
        sh -c "cd '$build_dir' && makepkg ${makepkg_args[*]}"; then
-    # A few local packages are build/runtime deps of later ones and must be
-    # installed into the build container so those --syncdeps builds resolve:
-    #   scenefx0.5 -> mangowm ;  calamares -> agave-calamares-config
-    # (--packagelist handles split packages; --asdeps keeps them non-explicit).
-    case "$name" in
-      scenefx0.5|calamares)
-        while IFS= read -r built; do
-          [ -e "$built" ] || continue
-          pacman -U --noconfirm --asdeps "$built"
-        done < <(sudo -u builder env PKGDEST="$pkgdest" \
-                   sh -c "cd '$build_dir' && makepkg --packagelist" 2>/dev/null)
-        ;;
-    esac
+    # Install every package this PKGBUILD produced into the (throwaway) build
+    # container so later --syncdeps builds resolve local inter-package deps:
+    #   scenefx0.5 -> mangowm ; calamares -> agave-calamares-config ;
+    #   elephant -> walker-bin ; etc. --packagelist handles split packages
+    #   (adwaita-qt5/6); --asdeps keeps them non-explicit. Non-fatal on error.
+    while IFS= read -r built; do
+      [ -e "$built" ] || continue
+      pacman -U --noconfirm --asdeps "$built" 2>/dev/null || true
+    done < <(sudo -u builder env PKGDEST="$pkgdest" \
+               sh -c "cd '$build_dir' && makepkg --packagelist" 2>/dev/null)
   else
     failed+=("$name")
     echo "ERROR: $name failed to build" >&2
