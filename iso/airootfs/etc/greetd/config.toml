@@ -1,0 +1,11 @@
+# Live-session greetd: autologin the `agave` user into Mango via a small
+# launcher that applies safe-graphics env when booted with that entry. Mango
+# then runs ~/.config/mango/autostart.sh (exec-once) to bring up Wayle. Exists
+# only on the live ISO; the installed system's greetd config comes from the
+# Calamares users job.
+[terminal]
+vt = 1
+
+[default_session]
+command = "/usr/local/bin/agave-session"
+user = "agave"

@@ -1,0 +1,14 @@
+[Unit]
+Description=Agave Linux live-session setup (skel + Calamares autostart)
+# Must finish before greetd logs the live user in.
+Before=greetd.service
+After=systemd-tmpfiles-setup.service
+ConditionPathExists=/usr/local/bin/agave-live-setup
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/agave-live-setup
+
+[Install]
+WantedBy=multi-user.target

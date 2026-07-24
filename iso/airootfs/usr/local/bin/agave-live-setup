@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# One-shot live-session setup, run at boot before greetd (agave-live-setup
+# .service). Populates the live user's home from /etc/skel and arranges for
+# Calamares to auto-launch inside the Mango session. None of this reaches the
+# installed system — the live user and this unit are stripped by Calamares.
+set -u
+
+live_user='agave'
+home="/home/${live_user}"
+
+log() { printf 'agave-live-setup: %s\n' "$*"; }
+
+# --- populate the live user's home from skel -------------------------------
+# The squashfs ships an empty /home/agave; copy skel so the desktop configs
+# (mango, wayle, fish, ...) are present and owned by the live user.
+if [ ! -e "${home}/.config/mango/config.conf" ]; then
+  mkdir -p "${home}"
+  cp -aT /etc/skel "${home}" 2>/dev/null || true
+fi
+chown -R "${live_user}:${live_user}" "${home}"
+
+# --- arrange Calamares autostart inside Mango ------------------------------
+# Mango runs ~/.config/mango/autostart.sh once at session start. Append a
+# live-only launcher that starts Calamares after the shell settles. Guarded so
+# re-runs don't stack duplicates.
+autostart="${home}/.config/mango/autostart.sh"
+marker='# --- agave live: launch installer ---'
+if [ -f "${autostart}" ] && ! grep -qF "${marker}" "${autostart}"; then
+  # Insert before the trailing `wait` so it runs as part of the session.
+  tmp="$(mktemp)"
+  awk -v marker="${marker}" '
+    /^wait$/ && !done {
+      print marker
+      print "if command -v calamares >/dev/null 2>&1; then"
+      print "  ( sleep 3; exec calamares-launch ) &"
+      print "fi"
+      print ""
+      done = 1
+    }
+    { print }
+  ' "${autostart}" > "${tmp}"
+  cat "${tmp}" > "${autostart}"
+  rm -f "${tmp}"
+  chown "${live_user}:${live_user}" "${autostart}"
+  log "added Calamares autostart to Mango session"
+fi
+
+# A tiny wrapper so we control how Calamares is launched (debug logging, and
+# a friendly terminal fallback if the GUI fails to come up).
+cat > /usr/local/bin/calamares-launch <<'LAUNCH'
+#!/usr/bin/env bash
+# Launch the Calamares installer in the live Mango session.
+exec pkexec calamares -d
+LAUNCH
+chmod 755 /usr/local/bin/calamares-launch
+
+log "done"

@@ -1,0 +1,188 @@
+# Agave Linux ISO package set — everything baked into the live squashfs.
+# The offline install copies this squashfs to disk, so this list is also the
+# installed-system package set. Grouped for maintainability.
+#
+# Sources: [core]/[extra] unless marked "[agaveos]" (built by this monorepo).
+
+## --- base system ----------------------------------------------------------
+base
+base-devel
+sudo
+linux-firmware
+amd-ucode
+intel-ucode
+mkinitcpio
+mkinitcpio-archiso
+
+## --- kernels (linux is default; all three get initramfs + GRUB entries) ---
+linux
+linux-headers
+linux-lts
+linux-lts-headers
+linux-zen
+linux-zen-headers
+
+## --- filesystems, disk, snapshots (Phase 3) -------------------------------
+btrfs-progs
+dosfstools
+e2fsprogs
+exfatprogs
+ntfs-3g
+xfsprogs
+f2fs-tools
+cryptsetup
+lvm2
+mdadm
+gptfdisk
+parted
+snapper
+snap-pac
+grub-btrfs
+inotify-tools
+zram-generator
+
+## --- boot ------------------------------------------------------------------
+grub
+efibootmgr
+os-prober
+memtest86+
+memtest86+-efi
+
+## --- GPU / graphics --------------------------------------------------------
+mesa
+vulkan-radeon
+vulkan-intel
+vulkan-icd-loader
+intel-media-driver
+mesa-utils
+# NVIDIA (nvidia-open-dkms for all 3 kernels) is added in Phase 4.
+
+## --- networking ------------------------------------------------------------
+networkmanager
+iwd
+dhcpcd
+wireless-regdb
+modemmanager
+openssh
+rsync
+wget
+curl
+
+## --- live environment / installer -----------------------------------------
+calamares
+agave-calamares-config
+archinstall
+git
+reflector
+terminus-font
+
+## --- audio -----------------------------------------------------------------
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+wireplumber
+sof-firmware
+alsa-utils
+
+## --- desktop: Mango + Wayle (owlmango GUI set) -----------------------------
+mangowm
+wayle-mango
+agave-desktop
+agave-release
+agave-keyring
+greetd
+uwsm
+
+# Wayland utilities
+brightnessctl
+grim
+slurp
+playerctl
+swayidle
+swaylock
+swaybg
+wl-clipboard
+xorg-xwayland
+xwayland-satellite
+
+# Portals
+xdg-desktop-portal
+xdg-desktop-portal-gnome
+xdg-desktop-portal-gtk
+xdg-desktop-portal-wlr
+xdg-utils
+
+# Launcher stack
+elephant
+elephant-desktopapplications
+walker-bin
+
+# Theming
+adwaita-qt5
+adwaita-qt6
+qgnomeplatform-qt5
+qgnomeplatform-qt6
+adwaita-fonts
+papirus-icon-theme
+qt5ct
+qt6ct
+gtk4
+gtk4-layer-shell
+gtksourceview5
+
+# Fonts
+noto-fonts
+noto-fonts-extra
+noto-fonts-emoji
+ttf-font-awesome-5
+otf-font-awesome
+
+# Session services
+polkit-kde-agent
+power-profiles-daemon
+upower
+gnome-keyring
+libsecret
+gcr-4
+
+## --- applications ----------------------------------------------------------
+ghostty
+zen-browser-bin
+evince
+loupe
+sushi
+celluloid
+beeper-v4-bin
+
+## --- CLI tools (owlmango CLI set) ------------------------------------------
+bat
+btop
+fish
+fzf
+htop
+jq
+neovim
+nano
+vim
+less
+man-db
+man-pages
+mise
+nushell
+zellij
+openssh
+bluez
+bluez-utils
+impala
+wiremix
+bluetui
+docker
+docker-compose
+
+## --- VM guest tools (help live-boot in QEMU/VirtualBox/VMware) -------------
+qemu-guest-agent
+open-vm-tools
+virtualbox-guest-utils-nox
+hyperv
+spice-vdagent

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Live-session launcher invoked by greetd for the autologin user. Applies
+# safe-graphics environment when the kernel was booted with the safe-graphics
+# entry (agave.safegraphics=1), then execs Mango. Live ISO only.
+if grep -qw 'agave.safegraphics=1' /proc/cmdline 2>/dev/null; then
+  # Keep wlroots (Mango) and Mesa entirely off the GPU.
+  export WLR_RENDERER=pixman
+  export LIBGL_ALWAYS_SOFTWARE=1
+  export WLR_NO_HARDWARE_CURSORS=1
+fi
+exec mango

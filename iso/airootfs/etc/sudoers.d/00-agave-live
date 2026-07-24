@@ -1,0 +1,4 @@
+# Live session: the agave user needs passwordless sudo so Calamares can run.
+# The Calamares cleanup job removes this file (and the live user) from the
+# installed target.
+agave ALL=(ALL:ALL) NOPASSWD: ALL

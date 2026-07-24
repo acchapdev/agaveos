@@ -1,0 +1,15 @@
+root:x:0:root
+sys:x:3:agave
+adm:x:4:agave
+wheel:x:10:agave
+log:x:19:agave
+network:x:90:agave
+video:x:985:agave
+audio:x:995:agave
+input:x:994:agave
+storage:x:984:agave
+power:x:98:agave
+users:x:100:agave
+rfkill:x:983:agave
+agave:x:1000:
+greeter:x:990:
