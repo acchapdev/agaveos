@@ -25,9 +25,7 @@ optdepends=(
   'pipewire-pulse: PulseAudio compatibility for the audio modules'
   'wireplumber: PipeWire session management'
 )
-# cmake + nasm are needed by aws-lc-sys (rustls crypto backend) to build its
-# bundled C library; without them linking fails on undefined aws_lc_* symbols.
-makedepends=('cargo' 'git' 'clang' 'cmake' 'nasm')
+makedepends=('cargo' 'git' 'clang')
 provides=('wayle')
 conflicts=('wayle' 'wayle-bin' 'wayle-git')
 source=("$pkgname::git+$url.git#commit=$_commit")
@@ -42,6 +40,12 @@ prepare() {
 build() {
   cd "$pkgname"
   export RUSTUP_TOOLCHAIN=stable
+  # NOTE: wayle-mango pulls in aws-lc-sys (rustls crypto backend via reqwest),
+  # whose bundled C library builds reliably on NATIVE x86_64 but NOT under
+  # emulation (Rosetta/QEMU): its C build intermittently emits no library and
+  # the link fails on undefined aws_lc_* symbols. Build this package on native
+  # x86_64 (GitHub Actions runners, per docs/PLAN.md "CI is canonical"), not in
+  # the local Rosetta container.
   cargo build --frozen --release --package wayle --package wayle-settings
 }
 

@@ -10,11 +10,13 @@ RUN sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf
 RUN pacman -Syu --noconfirm --needed \
       base-devel git archiso grub dosfstools mtools rsync jq \
       pacman-contrib devtools namcap rustup \
-      cmake nasm \
+      cmake nasm go \
     && pacman -Scc --noconfirm
-# cmake + nasm: aws-lc-sys (rustls crypto backend, pulled in by wayle-mango)
-# builds a bundled C crypto library and needs both, else linking fails with
-# undefined aws_lc_* symbols.
+# cmake + nasm + go: build deps of aws-lc-sys (rustls crypto backend, pulled
+# in by wayle-mango via reqwest). aws-lc-sys builds its bundled C crypto
+# library reliably on NATIVE x86_64 but not under Rosetta/QEMU emulation, so
+# wayle-mango is a CI-only build (docs/PLAN.md "CI is canonical"); these tools
+# are here so the same image builds it on native x86_64 CI runners.
 
 # makepkg refuses to run as root; builds happen as this user.
 RUN useradd -m -G wheel builder \
