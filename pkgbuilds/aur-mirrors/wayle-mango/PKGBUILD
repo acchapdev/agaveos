@@ -1,0 +1,51 @@
+# Maintainer: Agave Linux <brochapman@gmail.com>
+# Net-new PKGBUILD (no AUR upstream): the wayle-mango fork adds the
+# mango-workspaces bar module and MangoWM compositor detection that the
+# upstream wayle-bin AUR package does not carry. Pinned to a commit for
+# reproducible ISO builds — bump _commit deliberately.
+
+pkgname=wayle-mango
+_commit=929c6d298c3b032b978915d9385b0ac7f2e3e1ef
+pkgver=0.4.1+g929c6d2
+pkgrel=1
+pkgdesc='Wayle GTK4 Wayland shell (wayle-mango fork with MangoWM support)'
+arch=('x86_64')
+url='https://github.com/theblack-don/wayle-mango'
+license=('MIT')
+depends=(
+  'gtk4'
+  'gtk4-layer-shell'
+  'gtksourceview5'
+  'libpulse'
+  'fftw'
+  'networkmanager'
+)
+optdepends=(
+  'pipewire: audio service integration'
+  'pipewire-pulse: PulseAudio compatibility for the audio modules'
+  'wireplumber: PipeWire session management'
+)
+makedepends=('cargo' 'git' 'clang')
+provides=('wayle')
+conflicts=('wayle' 'wayle-bin' 'wayle-git')
+source=("$pkgname::git+$url.git#commit=$_commit")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "$pkgname"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$pkgname"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo build --frozen --release --package wayle --package wayle-settings
+}
+
+package() {
+  cd "$pkgname"
+  install -Dm755 target/release/wayle "$pkgdir/usr/bin/wayle"
+  install -Dm755 target/release/wayle-settings "$pkgdir/usr/bin/wayle-settings"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -1,0 +1,11 @@
+NAME="Agave Linux"
+PRETTY_NAME="Agave Linux"
+ID=agave
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="38;2;122;162;90"
+HOME_URL="https://github.com/acchapm1/agavelinux"
+DOCUMENTATION_URL="https://github.com/acchapm1/agavelinux"
+SUPPORT_URL="https://github.com/acchapm1/agavelinux/issues"
+BUG_REPORT_URL="https://github.com/acchapm1/agavelinux/issues"
+LOGO=agave

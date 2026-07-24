@@ -1,0 +1,28 @@
+# Maintainer: Agave Linux <brochapman@gmail.com>
+# The tarball is generated from the monorepo calamares/ tree by
+# scripts/build-packages.sh before makepkg runs.
+
+pkgname=agave-calamares-config
+pkgver=2026.07
+pkgrel=1
+pkgdesc='Calamares installer configuration and branding for Agave Linux'
+arch=('any')
+url='https://github.com/acchapm1/agavelinux'
+license=('MIT')
+depends=('calamares')
+source=('calamares-config.tar.gz')
+sha256sums=('SKIP')
+
+package() {
+  install -Dm644 settings.conf "$pkgdir/etc/calamares/settings.conf"
+
+  if [ -d modules ]; then
+    mkdir -p "$pkgdir/etc/calamares/modules"
+    cp -a modules/. "$pkgdir/etc/calamares/modules/"
+  fi
+
+  if [ -d branding/agave ]; then
+    mkdir -p "$pkgdir/usr/share/calamares/branding/agave"
+    cp -a branding/agave/. "$pkgdir/usr/share/calamares/branding/agave/"
+  fi
+}

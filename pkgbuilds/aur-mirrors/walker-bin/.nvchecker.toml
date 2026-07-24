@@ -1,0 +1,5 @@
+["walker-bin"]
+source = "github"
+github = "abenz1267/walker"
+use_latest_release = true
+prefix = "v"

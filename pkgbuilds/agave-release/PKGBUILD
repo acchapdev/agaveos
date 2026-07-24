@@ -1,0 +1,29 @@
+# Maintainer: Agave Linux <brochapman@gmail.com>
+
+pkgname=agave-release
+pkgver=2026.07
+pkgrel=1
+pkgdesc='Agave Linux identity: os-release branding and [agaveos] repo mirrorlist'
+arch=('any')
+url='https://github.com/acchapm1/agavelinux'
+license=('MIT')
+install=agave-release.install
+source=(
+  'os-release'
+  'agave-mirrorlist'
+  '90-agave-os-release.hook'
+  'agave-apply-os-release'
+)
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+package() {
+  # The filesystem package owns /etc/os-release (a symlink to
+  # /usr/lib/os-release), so identity is applied by a hook + install script
+  # instead of owning the path: our copy lives under /usr/share/agave and is
+  # copied over /etc/os-release after every filesystem transaction.
+  install -Dm644 os-release "$pkgdir/usr/share/agave/os-release"
+  install -Dm755 agave-apply-os-release "$pkgdir/usr/bin/agave-apply-os-release"
+  install -Dm644 90-agave-os-release.hook \
+    "$pkgdir/usr/share/libalpm/hooks/90-agave-os-release.hook"
+  install -Dm644 agave-mirrorlist "$pkgdir/etc/pacman.d/agave-mirrorlist"
+}

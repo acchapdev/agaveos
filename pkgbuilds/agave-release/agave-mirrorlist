@@ -1,0 +1,3 @@
+# Agave Linux [agaveos] repository.
+# Packages are CI-built and served from a rolling GitHub Release.
+Server = https://github.com/acchapm1/agavelinux/releases/download/repo

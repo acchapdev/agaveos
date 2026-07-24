@@ -1,0 +1,7 @@
+post_install() {
+  /usr/bin/agave-apply-os-release
+}
+
+post_upgrade() {
+  /usr/bin/agave-apply-os-release
+}

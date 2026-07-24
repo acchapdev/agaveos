@@ -1,0 +1,26 @@
+# Build artifacts
+out/
+work/
+repo/
+*.iso
+*.iso.sha256
+*.pkg.tar.zst
+*.pkg.tar.zst.sig
+
+# makepkg working dirs
+pkgbuilds/**/src/
+pkgbuilds/**/pkg/
+pkgbuilds/**/*.tar.gz
+pkgbuilds/**/*.tar.xz
+pkgbuilds/**/*.crate
+
+# Generated package trees (regenerate with scripts/gen-agave-desktop.sh)
+pkgbuilds/agave-desktop/payload/
+
+# Private key material must never land in git
+*.asc
+*.private*
+
+# Logs and OS noise
+*.log
+.DS_Store

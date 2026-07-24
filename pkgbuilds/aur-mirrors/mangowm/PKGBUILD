@@ -1,0 +1,55 @@
+# Maintainer: Agave Linux <brochapman@gmail.com>
+# Adapted from AUR mangowm-git (Maintainer: DreamMaoMao); pinned to a commit
+# for reproducible ISO builds instead of tracking raw git HEAD.
+# Bump _commit deliberately. Ships /usr/share/wayland-sessions/mango.desktop
+# and /etc/mango/config.conf via upstream meson install (agave-desktop
+# intentionally does not package those paths).
+
+pkgname=mangowm
+_commit=d5a42747f3bdec81fe269ca2873b7f5ee77ac4ad
+pkgver=r1351.d5a4274
+pkgrel=1
+pkgdesc='A Wayland compositor with smooth animation (dwl-based)'
+url='https://github.com/mangowm/mango'
+arch=('x86_64')
+license=('GPL-3.0-only')
+depends=(
+  'wayland>=1.23.1'
+  'libinput>=1.27.1'
+  libdrm
+  pixman
+  libxkbcommon
+  pcre2
+  pango
+  cjson
+  libxcb
+  xorg-xwayland
+  'libwlroots-0.20.so'
+  'scenefx0.5'
+)
+makedepends=(
+  git
+  meson
+  ninja
+  'wayland-protocols>=1.41'
+)
+provides=(wayland-compositor)
+conflicts=(mangowm-git mangowm-wlonly-git mangowc mangowc-git mangowc-wllonly-git)
+source=("$pkgname::git+https://github.com/mangowm/mango.git#commit=$_commit")
+sha256sums=('SKIP')
+options=('!strip' '!lto')
+
+pkgver() {
+  cd "$pkgname"
+  printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  export CC=gcc
+  arch-meson "$pkgname" build
+  ninja -C build
+}
+
+package() {
+  DESTDIR="$pkgdir/" ninja -C build install
+}

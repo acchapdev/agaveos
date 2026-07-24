@@ -1,0 +1,6 @@
+#!/bin/sh
+# Replace the /etc/os-release symlink (filesystem package) with the Agave
+# identity. Re-run by a libalpm hook whenever filesystem updates it.
+rm -f /etc/os-release
+cp /usr/share/agave/os-release /etc/os-release
+chmod 644 /etc/os-release

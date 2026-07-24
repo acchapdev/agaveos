@@ -1,0 +1,20 @@
+# Maintainer: Agave Linux <brochapman@gmail.com>
+# Payload is generated from the owlmango config tree by
+# scripts/gen-agave-desktop.sh — run it (or `just gen-desktop`) before makepkg.
+
+pkgname=agave-desktop
+pkgver=2026.07
+pkgrel=1
+pkgdesc='Agave Linux desktop configuration (Mango + Wayle): skel dotfiles and system defaults'
+arch=('any')
+url='https://github.com/acchapm1/agavelinux'
+license=('MIT')
+# Config-only package: the full desktop stack is pulled in by the ISO package
+# list, keeping this installable in minimal containers for repo verification.
+depends=()
+source=('agave-desktop-payload.tar.gz')
+sha256sums=('SKIP')
+
+package() {
+  cp -a "$srcdir/etc" "$srcdir/usr" "$pkgdir/"
+}

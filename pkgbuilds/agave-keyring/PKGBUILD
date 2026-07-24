@@ -1,0 +1,24 @@
+# Maintainer: Agave Linux <brochapman@gmail.com>
+# Keyring files are exported by scripts/gen-signing-key.sh (run once, keep the
+# private key in GitHub Actions secrets — see keyring/README.md).
+
+pkgname=agave-keyring
+pkgver=2026.07
+pkgrel=1
+pkgdesc='Agave Linux package signing keyring for the [agaveos] repository'
+arch=('any')
+url='https://github.com/acchapm1/agavelinux'
+license=('MIT')
+install=agave-keyring.install
+source=(
+  'keyring/agave.gpg'
+  'keyring/agave-trusted'
+  'keyring/agave-revoked'
+)
+sha256sums=('SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm644 agave.gpg "$pkgdir/usr/share/pacman/keyrings/agave.gpg"
+  install -Dm644 agave-trusted "$pkgdir/usr/share/pacman/keyrings/agave-trusted"
+  install -Dm644 agave-revoked "$pkgdir/usr/share/pacman/keyrings/agave-revoked"
+}

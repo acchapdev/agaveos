@@ -1,0 +1,98 @@
+# Build all [agaveos] packages and publish the repo to the rolling "repo"
+# GitHub Release. CI is the canonical build environment (docs/PLAN.md).
+name: packages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pkgbuilds/**'
+      - 'calamares/**'
+      - 'scripts/**'
+      - '.github/workflows/packages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+    steps:
+      # Mirror of containers/Dockerfile (kept in sync manually).
+      - name: Prepare build environment
+        run: |
+          pacman -Syu --noconfirm --needed \
+            base-devel git archiso grub dosfstools mtools rsync jq \
+            pacman-contrib devtools namcap rustup github-cli
+          useradd -m -G wheel builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+          chmod 440 /etc/sudoers.d/builder
+          sudo -u builder rustup default stable
+
+      - name: Checkout agavelinux
+        uses: actions/checkout@v4
+        with:
+          path: agavelinux
+
+      # owlmango is the source of truth for the agave-desktop payload.
+      # If the repo is private, set OWLMANGO_CHECKOUT_TOKEN (a PAT with read
+      # access) as a secret; the default token only reaches public repos.
+      - name: Checkout owlmango
+        uses: actions/checkout@v4
+        with:
+          repository: acchapm1/owlmango
+          path: owlmango
+          token: ${{ secrets.OWLMANGO_CHECKOUT_TOKEN || github.token }}
+
+      - name: Detect signing key
+        env:
+          AGAVE_GPG_PRIVATE_KEY: ${{ secrets.AGAVE_GPG_PRIVATE_KEY }}
+        run: |
+          if [ -n "$AGAVE_GPG_PRIVATE_KEY" ]; then
+            echo "HAVE_KEY=1" >> "$GITHUB_ENV"
+          else
+            echo "::warning::AGAVE_GPG_PRIVATE_KEY not set — repo will be unsigned"
+            echo "HAVE_KEY=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Import signing key
+        if: ${{ env.HAVE_KEY == '1' }}
+        env:
+          AGAVE_GPG_PRIVATE_KEY: ${{ secrets.AGAVE_GPG_PRIVATE_KEY }}
+        run: |
+          printf '%s' "$AGAVE_GPG_PRIVATE_KEY" | sudo -u builder gpg --batch --import
+
+      - name: Build packages
+        working-directory: agavelinux
+        env:
+          OWLMANGO_DIR: ${{ github.workspace }}/owlmango
+        run: |
+          git config --global --add safe.directory '*'
+          AGAVE_SIGN=$HAVE_KEY scripts/build-packages.sh
+
+      - name: Verify repo from a clean pacman
+        working-directory: agavelinux
+        run: scripts/verify-repo.sh
+
+      - name: Upload repo artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agaveos-repo
+          path: agavelinux/repo/
+
+      - name: Publish to rolling "repo" release
+        if: github.ref == 'refs/heads/main'
+        working-directory: agavelinux
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view repo --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create repo --repo "$GITHUB_REPOSITORY" \
+              --title "[agaveos] package repository" \
+              --notes "Rolling pacman repository — do not download manually; used by pacman via /etc/pacman.d/agave-mirrorlist." \
+              --prerelease
+          gh release upload repo --repo "$GITHUB_REPOSITORY" --clobber repo/*
