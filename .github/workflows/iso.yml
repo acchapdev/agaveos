@@ -1,0 +1,89 @@
+# Build the Agave Linux live ISO with mkarchiso on a native x86_64 runner,
+# using the [agaveos] repo from the rolling "repo" Release. CI is the canonical
+# build environment (docs/PLAN.md). Uploads the ISO as a workflow artifact; on
+# a version tag it also attaches the ISO + checksum to a GitHub Release.
+name: iso
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    # Rebuild the ISO after a successful package build so the repo is current.
+    workflows: ['packages']
+    types: [completed]
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  iso:
+    # Skip when triggered by a failed packages run.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+    steps:
+      - name: Prepare build environment
+        run: |
+          pacman -Syu --noconfirm --needed \
+            base-devel git archiso grub dosfstools mtools rsync jq \
+            pacman-contrib devtools github-cli
+
+      - name: Checkout agavelinux
+        uses: actions/checkout@v4
+
+      - name: Fetch [agaveos] repo from the rolling release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p repo
+          if ! gh release download repo --repo "$GITHUB_REPOSITORY" --dir repo --clobber; then
+            echo "::error::no [agaveos] repo release yet — run the packages workflow first"
+            exit 1
+          fi
+          ls -la repo
+
+      - name: Import signing key into pacman keyring
+        if: ${{ hashFiles('pkgbuilds/agave-keyring/keyring/agave.gpg') != '' }}
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman-key --add pkgbuilds/agave-keyring/keyring/agave.gpg
+          awk -F: '{print $1}' pkgbuilds/agave-keyring/keyring/agave-trusted \
+            | while read -r fpr; do [ -n "$fpr" ] && pacman-key --lsign-key "$fpr"; done
+
+      - name: Build ISO
+        run: |
+          git config --global --add safe.directory '*'
+          scripts/build-iso.sh
+
+      - name: Compute checksum
+        run: |
+          cd out
+          sha256sum agaveos-*.iso > "$(ls agaveos-*.iso).sha256"
+          ls -la
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agave-iso
+          path: |
+            out/*.iso
+            out/*.iso.sha256
+          # ISOs are large; keep the retention short for CI iteration.
+          retention-days: 7
+
+      - name: Attach ISO to release (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" --repo "$GITHUB_REPOSITORY" \
+            --title "Agave Linux ${GITHUB_REF_NAME}" --generate-notes \
+            || true
+          gh release upload "${GITHUB_REF_NAME}" --repo "$GITHUB_REPOSITORY" --clobber \
+            out/*.iso out/*.iso.sha256

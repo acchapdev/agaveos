@@ -42,22 +42,20 @@ fi
 rm -rf "$work"
 mkdir -p "$out" "$work"
 
-echo "==> building Agave Linux ISO (repo: $repo_out)"
-# Bind the profile's file:///work/repo to our actual repo path when they differ
-# (local runs mount the monorepo at an arbitrary path).
-profile_repo=/work/repo
-if [ "$repo_out" != "$profile_repo" ]; then
-  mkdir -p "$profile_repo"
-  # Reflect repo_out at /work/repo without copying (bind mount if possible).
-  if ! mountpoint -q "$profile_repo" 2>/dev/null; then
-    mount --bind "$repo_out" "$profile_repo" 2>/dev/null || {
-      # Fall back to a copy if bind mounting is unavailable.
-      cp -a "$repo_out/." "$profile_repo/"
-    }
-  fi
+# The profile's pacman.conf points [agaveos] at file:///work/repo as a
+# placeholder. Generate a build-time copy pointing at the actual repo path
+# (which differs between local runs and CI) and pass it with mkarchiso -C, so
+# there is no dependency on a fixed mount point.
+build_pacman_conf="$work/pacman.conf"
+sed "s#^Server = file:///work/repo#Server = file://$repo_out#" \
+  "$iso_dir/pacman.conf" > "$build_pacman_conf"
+if ! grep -q "Server = file://$repo_out" "$build_pacman_conf"; then
+  echo "error: failed to rewrite [agaveos] Server line in pacman.conf" >&2
+  exit 1
 fi
 
-mkarchiso -v -w "$work" -o "$out" "$iso_dir"
+echo "==> building Agave Linux ISO (repo: $repo_out)"
+mkarchiso -v -C "$build_pacman_conf" -w "$work" -o "$out" "$iso_dir"
 
 echo "==> ISO built:"
 /bin/ls -lh "$out"/*.iso
