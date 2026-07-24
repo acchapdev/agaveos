@@ -48,6 +48,14 @@ if [ -n "${BUILD_ONLY:-}" ]; then
   read -r -a packages <<< "$BUILD_ONLY"
 fi
 
+# Cap build parallelism to keep peak memory in check. Rust link steps (notably
+# wayle-mango, which statically links aws-lc + a full GTK4 binary) are memory
+# heavy; under a constrained VM (e.g. OrbStack/Rosetta on a 16 GB Mac) an
+# unbounded `cargo build -j$(nproc)` can exhaust RAM and get the linker killed
+# with no error message. Set BUILD_JOBS to override (default: leave unset ->
+# makepkg's own default on roomy CI runners; 4 is a safe local value).
+build_jobs="${BUILD_JOBS:-}"
+
 log "refreshing base system"
 pacman -Syu --noconfirm
 
@@ -90,7 +98,12 @@ for rel in "${packages[@]}"; do
 
   makepkg_args=(--syncdeps --noconfirm --force --cleanbuild)
   [ "${AGAVE_SIGN:-0}" = 1 ] && makepkg_args+=(--sign)
-  if sudo -u builder env PKGDEST="$pkgdest" \
+  # Pass the parallelism cap into makepkg's environment when set.
+  build_env=(PKGDEST="$pkgdest")
+  if [ -n "$build_jobs" ]; then
+    build_env+=(CARGO_BUILD_JOBS="$build_jobs" MAKEFLAGS="-j$build_jobs")
+  fi
+  if sudo -u builder env "${build_env[@]}" \
        sh -c "cd '$build_dir' && makepkg ${makepkg_args[*]}"; then
     # Install every package this PKGBUILD produced into the (throwaway) build
     # container so later --syncdeps builds resolve local inter-package deps:
