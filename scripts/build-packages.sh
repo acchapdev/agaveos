@@ -22,17 +22,19 @@ builder_home=$(getent passwd builder | cut -d: -f6)
 
 log() { printf '\n==> %s\n' "$*"; }
 
-# Build order matters: scenefx0.5 is a local dependency of mangowm and is
-# installed with pacman -U as soon as it is built.
+# Build order matters: a package that is a build/runtime dependency of a later
+# one must come first — each built package is pacman -U'd immediately (below)
+# so subsequent --syncdeps builds resolve it. scenefx0.5 -> mangowm;
+# calamares -> agave-calamares-config.
 packages=(
   agave-release
   agave-keyring
-  agave-calamares-config
   agave-desktop
   aur-mirrors/scenefx0.5
   aur-mirrors/mangowm
   aur-mirrors/wayle-mango
   aur-mirrors/calamares
+  agave-calamares-config
   aur-mirrors/elephant
   aur-mirrors/elephant-desktopapplications
   aur-mirrors/walker-bin
@@ -90,10 +92,19 @@ for rel in "${packages[@]}"; do
   [ "${AGAVE_SIGN:-0}" = 1 ] && makepkg_args+=(--sign)
   if sudo -u builder env PKGDEST="$pkgdest" \
        sh -c "cd '$build_dir' && makepkg ${makepkg_args[*]}"; then
-    # Local dependency of mangowm: make it resolvable for later -s builds.
-    if [ "$name" = scenefx0.5 ]; then
-      pacman -U --noconfirm "$pkgdest"/scenefx0.5-*.pkg.tar.zst
-    fi
+    # A few local packages are build/runtime deps of later ones and must be
+    # installed into the build container so those --syncdeps builds resolve:
+    #   scenefx0.5 -> mangowm ;  calamares -> agave-calamares-config
+    # (--packagelist handles split packages; --asdeps keeps them non-explicit).
+    case "$name" in
+      scenefx0.5|calamares)
+        while IFS= read -r built; do
+          [ -e "$built" ] || continue
+          pacman -U --noconfirm --asdeps "$built"
+        done < <(sudo -u builder env PKGDEST="$pkgdest" \
+                   sh -c "cd '$build_dir' && makepkg --packagelist" 2>/dev/null)
+        ;;
+    esac
   else
     failed+=("$name")
     echo "ERROR: $name failed to build" >&2
