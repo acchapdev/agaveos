@@ -28,6 +28,12 @@ optdepends=(
 makedepends=('cargo' 'git' 'clang')
 provides=('wayle')
 conflicts=('wayle' 'wayle-bin' 'wayle-git')
+# Disable makepkg's default LTO. wayle-mango pulls in aws-lc-sys (rustls crypto
+# backend via reqwest), which links a bundled static crypto library built from
+# checked-in prebuilt objects. makepkg's -flto in CFLAGS corrupts that link:
+# the aws_lc_* symbols come out undefined and the final binary fails to link.
+# Turning LTO off is the actual fix (verified: builds cleanly with it off).
+options=('!lto')
 source=("$pkgname::git+$url.git#commit=$_commit")
 sha256sums=('SKIP')
 
@@ -40,12 +46,10 @@ prepare() {
 build() {
   cd "$pkgname"
   export RUSTUP_TOOLCHAIN=stable
-  # NOTE: wayle-mango pulls in aws-lc-sys (rustls crypto backend via reqwest),
-  # whose bundled C library builds reliably on NATIVE x86_64 but NOT under
-  # emulation (Rosetta/QEMU): its C build intermittently emits no library and
-  # the link fails on undefined aws_lc_* symbols. Build this package on native
-  # x86_64 (GitHub Actions runners, per docs/PLAN.md "CI is canonical"), not in
-  # the local Rosetta container.
+  # Belt-and-suspenders for the aws-lc-sys link (see options=!lto above): force
+  # aws-lc-sys to compile its crypto library from source via CMake instead of
+  # the checked-in prebuilt objects. Harmless if the prebuilt path is used.
+  export AWS_LC_SYS_CMAKE_BUILDER=1
   cargo build --frozen --release --package wayle --package wayle-settings
 }
 

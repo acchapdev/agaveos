@@ -40,7 +40,6 @@ packages=(
   aur-mirrors/walker-bin
   aur-mirrors/zen-browser-bin
   aur-mirrors/adwaita-qt
-  aur-mirrors/qgnomeplatform
   aur-mirrors/font-awesome-5
   aur-mirrors/beeper-v4-bin
 )

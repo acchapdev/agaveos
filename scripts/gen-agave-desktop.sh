@@ -63,6 +63,17 @@ for d in $skel_dirs; do
   rsync -a "$src/" "$skel/.config/$d/"
 done
 
+# Agave ships qt5ct/qt6ct + adwaita-qt for Qt theming, not qgnomeplatform
+# (archived upstream, broken against current Qt). owlmango's mango config sets
+# QT_QPA_PLATFORMTHEME=gnome (the qgnomeplatform theme); rewrite it to qt6ct so
+# Qt apps are themed by the platform theme we actually install.
+mango_conf="$skel/.config/mango/config.conf"
+if [ -f "$mango_conf" ]; then
+  # Portable in-place edit (BSD sed -i differs from GNU); rewrite via temp file.
+  sed 's/^env=QT_QPA_PLATFORMTHEME,gnome$/env=QT_QPA_PLATFORMTHEME,qt6ct/' \
+    "$mango_conf" > "$mango_conf.tmp" && mv "$mango_conf.tmp" "$mango_conf"
+fi
+
 # systemd user units + helper scripts (units use %h-relative paths)
 mkdir -p "$skel/.config/systemd/user"
 rsync -a "$owlmango/config/systemd/user/" "$skel/.config/systemd/user/"

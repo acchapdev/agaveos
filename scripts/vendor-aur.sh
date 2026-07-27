@@ -20,8 +20,6 @@ walker-bin
 zen-browser-bin
 adwaita-qt5
 adwaita-qt6
-qgnomeplatform-qt5
-qgnomeplatform-qt6
 ttf-font-awesome-5
 beeper-v4-bin
 scenefx0.5

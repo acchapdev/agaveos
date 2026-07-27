@@ -121,8 +121,6 @@ walker-bin
 # Theming
 adwaita-qt5
 adwaita-qt6
-qgnomeplatform-qt5
-qgnomeplatform-qt6
 adwaita-fonts
 papirus-icon-theme
 qt5ct
