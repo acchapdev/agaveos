@@ -11,7 +11,12 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 iso_dir="$repo_root/iso"
 repo_out="$repo_root/repo"
-work="$repo_root/work"
+# mkarchiso's work dir must be on a real Linux filesystem: writing the airootfs
+# (setcap, the version file, snapper hooks) fails on a bind-mounted macOS volume
+# under OrbStack. Default to an in-container path locally; CI (native Linux)
+# can point AGAVE_WORK back at repo_root/work. out/ stays on the repo so the
+# ISO artifact is accessible from the host.
+work="${AGAVE_WORK:-/var/tmp/agave-iso-work}"
 out="$repo_root/out"
 
 command -v mkarchiso >/dev/null || { echo "error: mkarchiso not found (run inside the build container)" >&2; exit 1; }
