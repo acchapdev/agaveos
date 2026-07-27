@@ -45,13 +45,40 @@ if [ -f "${autostart}" ] && ! grep -qF "${marker}" "${autostart}"; then
   log "added Calamares autostart to Mango session"
 fi
 
-# A tiny wrapper so we control how Calamares is launched (debug logging, and
-# a friendly terminal fallback if the GUI fails to come up).
+# A tiny wrapper so we control how Calamares is launched. Calamares ships a
+# pkexec policy and runs its own privileged helper; a polkit rule (installed
+# below) authorizes the live user without a password. Wait for the polkit agent
+# (started by autostart.sh) to be ready before launching.
 cat > /usr/local/bin/calamares-launch <<'LAUNCH'
 #!/usr/bin/env bash
-# Launch the Calamares installer in the live Mango session.
-exec pkexec calamares -d
+# Launch the Calamares installer in the live Mango session. The live user has
+# passwordless sudo, so run Calamares as root directly via sudo -E (no polkit
+# prompt to satisfy in an autologin session). root can access the user's
+# Wayland socket, so the Qt GUI connects to Mango. The Wayland env is passed
+# explicitly because sudo may scrub it.
+exec sudo -E \
+  WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}" \
+  XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
+  XDG_CURRENT_DESKTOP=mango \
+  QT_QPA_PLATFORM=wayland \
+  calamares -d
 LAUNCH
 chmod 755 /usr/local/bin/calamares-launch
+
+# Polkit rule: let the live `agave` user run Calamares (and its pkexec helper)
+# without a password prompt — the account is empty-password, so an interactive
+# prompt cannot be satisfied. Live ISO only; removed with the live user.
+mkdir -p /etc/polkit-1/rules.d
+cat > /etc/polkit-1/rules.d/49-agave-calamares.rules <<'RULES'
+/* Allow the live user to launch Calamares without authentication. */
+polkit.addRule(function(action, subject) {
+    if (subject.user === "agave" &&
+        (action.id === "io.calamares.calamares.pkexec.run" ||
+         action.id.indexOf("org.freedesktop.policykit.exec") === 0)) {
+        return polkit.Result.YES;
+    }
+});
+RULES
+chmod 644 /etc/polkit-1/rules.d/49-agave-calamares.rules
 
 log "done"
