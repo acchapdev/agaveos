@@ -73,6 +73,9 @@ curl
 ## --- live environment / installer -----------------------------------------
 calamares
 agave-calamares-config
+# Calamares needs unsquashfs (offline unpackfs) and the arch chroot helpers.
+squashfs-tools
+arch-install-scripts
 archinstall
 git
 reflector
