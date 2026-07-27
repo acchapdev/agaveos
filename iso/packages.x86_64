@@ -92,7 +92,10 @@ mangowm
 wayle-mango
 agave-desktop
 agave-release
-agave-keyring
+# agave-keyring — re-enable once the repo signing key exists (the [agaveos]
+# repo is currently unsigned/TrustAll; agave-keyring is skipped by the build
+# until scripts/gen-signing-key.sh has run, so it is not in the repo yet).
+#agave-keyring
 greetd
 uwsm
 

@@ -28,7 +28,6 @@ file_permissions=(
   ["/etc/shadow"]="0:0:400"
   ["/etc/gshadow"]="0:0:400"
   ["/root"]="0:0:750"
-  ["/root/.automated_script.sh"]="0:0:755"
   ["/etc/sudoers.d"]="0:0:750"
   ["/usr/local/bin/agave-live-setup"]="0:0:755"
   ["/usr/local/bin/agave-session"]="0:0:755"
