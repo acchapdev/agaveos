@@ -11,12 +11,13 @@ iso_application="Agave Linux Live/Install medium"
 iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m)"
 install_dir="agave"
 buildmodes=('iso')
+# BIOS via syslinux; UEFI via systemd-boot. (mkarchiso rejects grub + systemd-
+# boot on the same ESP — systemd-boot is the primary UEFI loader; the grub/
+# loopback.cfg still serves USB-loopback boots.)
 bootmodes=('bios.syslinux.mbr'
            'bios.syslinux.eltorito'
            'uefi-x64.systemd-boot.esp'
-           'uefi-x64.systemd-boot.eltorito'
-           'uefi-x64.grub.esp'
-           'uefi-x64.grub.eltorito')
+           'uefi-x64.systemd-boot.eltorito')
 pacman_conf="pacman.conf"
 airootfs_image_type="squashfs"
 # zstd (vs releng's xz) — the offline install copies this squashfs to disk, so
