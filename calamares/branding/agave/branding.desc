@@ -1,0 +1,47 @@
+# Agave Linux Calamares branding. Palette matches the desktop's Adwaita Pastel
+# Dark theme (bg #1e1e1e, surface #303030, accent #62a0ea, accent2 #0ab9dc).
+---
+componentName: agave
+
+welcomeStyleCalamares: false
+welcomeExpandingLogo: true
+
+windowExpanding: normal
+windowSize: 840px,560px
+windowPlacement: center
+
+sidebar: widget
+navigation: widget
+
+strings:
+    productName:         "Agave Linux"
+    shortProductName:    "Agave"
+    version:             "2026.07"
+    shortVersion:        "2026.07"
+    versionedName:       "Agave Linux 2026.07"
+    shortVersionedName:  "Agave 2026.07"
+    bootloaderEntryName: "Agave Linux"
+    productUrl:          "https://github.com/acchapdev/agaveos"
+    supportUrl:          "https://github.com/acchapdev/agaveos/issues"
+    knownIssuesUrl:      "https://github.com/acchapdev/agaveos/issues"
+    releaseNotesUrl:     "https://github.com/acchapdev/agaveos/releases"
+
+images:
+    productLogo:    "logo.png"
+    productIcon:    "logo.png"
+    productWelcome: "welcome.png"
+
+# Adwaita Pastel Dark palette.
+style:
+    SidebarBackground:        "#1e1e1e"
+    SidebarText:              "#ffffff"
+    SidebarTextSelect:        "#ffffff"
+    SidebarTextCurrent:       "#ffffff"
+    SidebarBackgroundSelected: "#62a0ea"
+    SidebarBackgroundCurrent: "#62a0ea"
+
+slideshow:    "show.qml"
+slideshowAPI: 2
+
+uploadServer:
+    type: "none"

@@ -25,4 +25,12 @@ package() {
     mkdir -p "$pkgdir/usr/share/calamares/branding/agave"
     cp -a branding/agave/. "$pkgdir/usr/share/calamares/branding/agave/"
   fi
+
+  # shellprocess jobs invoke these from the target chroot.
+  if [ -d scripts ]; then
+    for s in scripts/*; do
+      [ -f "$s" ] || continue
+      install -Dm755 "$s" "$pkgdir/usr/share/agave/calamares/$(basename "$s")"
+    done
+  fi
 }

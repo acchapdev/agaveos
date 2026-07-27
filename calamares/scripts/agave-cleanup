@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Calamares cleanup job (runs in the target chroot after unpackfs). Strips the
+# live-only bits copied from the squashfs and configures the installed system.
+# Argument $1 is the created user's name (passed by shellprocess as ${USER}).
+set -u
+
+created_user="${1:-}"
+log() { printf 'agave-cleanup: %s\n' "$*"; }
+
+# --- remove the live `agave` user and its home ------------------------------
+if id agave >/dev/null 2>&1 && [ "$created_user" != "agave" ]; then
+  userdel -r agave >/dev/null 2>&1 || userdel agave >/dev/null 2>&1 || true
+  rm -rf /home/agave
+  log "removed live user 'agave'"
+fi
+
+# --- remove live-session artifacts -----------------------------------------
+rm -f /etc/sudoers.d/00-agave-live
+rm -f /usr/local/bin/agave-live-setup /usr/local/bin/agave-session
+rm -f /usr/local/bin/calamares-launch
+rm -f /etc/systemd/system/agave-live-setup.service
+rm -f /etc/systemd/system/multi-user.target.wants/agave-live-setup.service
+# archiso live services / pacman-init are not wanted on disk
+rm -f /etc/systemd/system/multi-user.target.wants/pacman-init.service
+rm -f /etc/systemd/system/pacman-init.service
+rm -f /etc/systemd/system/etc-pacman.d-gnupg.mount
+log "removed live-session artifacts"
+
+# --- restore normal first-boot behavior ------------------------------------
+# The live ISO masked systemd-firstboot and shipped machine-id=uninitialized;
+# the machineid module already wrote a real id. Unmask firstboot (harmless on
+# an installed system — machine-id is set, so it won't prompt).
+rm -f /etc/systemd/system/systemd-firstboot.service
+log "unmasked systemd-firstboot"
+
+# --- greetd: installed-system config for the created user ------------------
+# Replace the live autologin (agave -> agave-session) with the greeter that
+# logs the created user into Mango. Templates ship in agave-desktop.
+if [ -n "$created_user" ] && [ -f /usr/share/agave/greetd/config-autologin.toml ]; then
+  mkdir -p /etc/greetd
+  sed "s/_USER_/$created_user/g" \
+    /usr/share/agave/greetd/config-autologin.toml > /etc/greetd/config.toml
+  chmod 644 /etc/greetd/config.toml
+  systemctl enable greetd.service >/dev/null 2>&1 || true
+  systemctl set-default graphical.target >/dev/null 2>&1 || true
+  log "configured greetd autologin for '$created_user'"
+fi
+
+# --- enable installed-system services --------------------------------------
+for unit in NetworkManager.service bluetooth.service systemd-resolved.service \
+            systemd-timesyncd.service; do
+  systemctl enable "$unit" >/dev/null 2>&1 || true
+done
+# Wired DHCP via systemd-networkd is shipped in /etc/systemd/network; enable it
+# only if NetworkManager is absent (NM is primary on the installed system).
+systemctl disable systemd-networkd.service >/dev/null 2>&1 || true
+
+# --- zram swap (docs/PLAN.md) ----------------------------------------------
+# zram-generator config ships in agave-release/agave-desktop; nothing to enable
+# (zram-generator is socket/generator-driven). Left here as a marker.
+
+log "done"

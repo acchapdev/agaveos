@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Calamares snapper setup (runs in the target chroot). Configures snapper +
+# snap-pac on the root subvolume and enables grub-btrfs so GRUB shows a
+# snapshot boot submenu (docs/PLAN.md Phase 3). Best-effort; non-fatal.
+set -u
+
+log() { printf 'agave-snapper: %s\n' "$*"; }
+
+# Only meaningful on a btrfs root.
+if ! findmnt -no FSTYPE / | grep -q btrfs; then
+  log "root is not btrfs; skipping snapper setup"
+  exit 0
+fi
+
+# Create the root config if snapper is present. snapper insists on creating its
+# own .snapshots subvolume; remove any pre-existing mountpoint first.
+if command -v snapper >/dev/null 2>&1; then
+  umount /.snapshots >/dev/null 2>&1 || true
+  rm -rf /.snapshots
+  snapper -c root create-config / >/dev/null 2>&1 || log "warning: snapper create-config failed"
+  # Sensible retention for a desktop.
+  snapper -c root set-config \
+    TIMELINE_CREATE=yes TIMELINE_CLEANUP=yes \
+    TIMELINE_LIMIT_HOURLY=5 TIMELINE_LIMIT_DAILY=7 \
+    TIMELINE_LIMIT_WEEKLY=0 TIMELINE_LIMIT_MONTHLY=0 \
+    NUMBER_LIMIT=10 NUMBER_LIMIT_IMPORTANT=10 >/dev/null 2>&1 || true
+  systemctl enable snapper-timeline.timer snapper-cleanup.timer >/dev/null 2>&1 || true
+  log "configured snapper root config"
+fi
+
+# grub-btrfs: watch snapshots and regenerate the GRUB submenu.
+if systemctl list-unit-files grub-btrfsd.service >/dev/null 2>&1; then
+  systemctl enable grub-btrfsd.service >/dev/null 2>&1 || true
+  log "enabled grub-btrfsd"
+fi
+
+log "done"
