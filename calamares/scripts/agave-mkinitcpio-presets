@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Restore stock mkinitcpio presets on the target before Calamares' initcpio job
+# runs. The live ISO ships archiso presets (PRESETS=('archiso') pointing at
+# archiso.conf), which unpackfs copies to disk; running `mkinitcpio -p linux`
+# with those on an installed system fails ("Invalid option -k ... must be
+# readable"). Write the normal default/fallback presets for every installed
+# kernel, and drop the live archiso mkinitcpio config. Runs in the target
+# chroot.
+set -u
+
+log() { printf 'agave-mkinitcpio: %s\n' "$*"; }
+
+# Remove the live archiso mkinitcpio drop-in (the installed system boots from
+# disk, not the archiso loop).
+rm -f /etc/mkinitcpio.conf.d/archiso.conf
+
+# Write a stock default/fallback preset for each installed kernel.
+for kver_dir in /usr/lib/modules/*/; do
+  [ -d "$kver_dir" ] || continue
+  # pkgbase names the kernel (linux, linux-lts, linux-zen).
+  pkgbase_file="${kver_dir}pkgbase"
+  [ -f "$pkgbase_file" ] || continue
+  kernel=$(cat "$pkgbase_file")
+  preset="/etc/mkinitcpio.d/${kernel}.preset"
+  cat > "$preset" <<EOF
+# mkinitcpio preset file for the '${kernel}' package (Agave install)
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="/boot/vmlinuz-${kernel}"
+
+PRESETS=('default' 'fallback')
+
+default_image="/boot/initramfs-${kernel}.img"
+
+fallback_image="/boot/initramfs-${kernel}-fallback.img"
+fallback_options="-S autodetect"
+EOF
+  log "wrote stock preset for ${kernel}"
+done
+
+log "done"
