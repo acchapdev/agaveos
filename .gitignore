@@ -27,3 +27,10 @@ pkgbuilds/agave-desktop/payload/
 
 # UTM VirtFS shared folder — install logs land here during manual testing
 utm-logs/
+
+# Testing overlay is copied into the profile airootfs only during an
+# AGAVE_TESTING=1 build and removed after; ignore it so an interrupted build
+# can never leak these into the committed profile.
+iso/airootfs/usr/local/bin/agave-collect-logs
+iso/airootfs/etc/systemd/system/agave-collect-logs.service
+iso/airootfs/etc/systemd/system/multi-user.target.wants/agave-collect-logs.service
