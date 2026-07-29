@@ -1,28 +1,45 @@
 #!/usr/bin/env bash
-# Restore stock mkinitcpio presets on the target before Calamares' initcpio job
-# runs. The live ISO ships archiso presets (PRESETS=('archiso') pointing at
-# archiso.conf), which unpackfs copies to disk; running `mkinitcpio -p linux`
-# with those on an installed system fails ("Invalid option -k ... must be
-# readable"). Write the normal default/fallback presets for every installed
-# kernel, and drop the live archiso mkinitcpio config. Runs in the target
-# chroot.
+# Prepare the target's /boot and mkinitcpio presets before Calamares' initcpio
+# job runs. Runs on the LIVE system (dontChroot: true); $1 is the target root
+# mount point (${ROOT}).
+#
+# Two problems this fixes, both inherent to an archiso-based offline installer:
+#   1. archiso strips the kernel images (vmlinuz-*) out of the squashfs, so
+#      unpackfs never copies them — the target's /boot has no kernels and
+#      mkinitcpio fails ("'/boot/vmlinuz-linux' must be readable"). Copy them
+#      from the live archiso boot mount into the target.
+#   2. The squashfs ships archiso mkinitcpio presets (PRESETS=('archiso')),
+#      which are invalid on an installed system. Write stock default/fallback
+#      presets for each installed kernel.
 set -u
 
+root="${1:-}"
 log() { printf 'agave-mkinitcpio: %s\n' "$*"; }
 
-# Remove the live archiso mkinitcpio drop-in (the installed system boots from
-# disk, not the archiso loop).
-rm -f /etc/mkinitcpio.conf.d/archiso.conf
+[ -n "$root" ] && [ -d "$root" ] || { log "no target root given"; exit 1; }
 
-# Write a stock default/fallback preset for each installed kernel.
-for kver_dir in /usr/lib/modules/*/; do
+# --- copy kernel images from the live medium into the target ----------------
+# The live system mounts the ISO here; the kernels live outside the squashfs.
+bootsrc="/run/archiso/bootmnt/agave/boot/x86_64"
+if [ -d "$bootsrc" ]; then
+  mkdir -p "$root/boot"
+  for k in "$bootsrc"/vmlinuz-*; do
+    [ -f "$k" ] || continue
+    install -Dm644 "$k" "$root/boot/$(basename "$k")"
+    log "installed $(basename "$k") into target /boot"
+  done
+else
+  log "warning: live archiso boot dir not found ($bootsrc)"
+fi
+
+# --- write stock mkinitcpio presets for every installed kernel --------------
+rm -f "$root/etc/mkinitcpio.conf.d/archiso.conf"
+for kver_dir in "$root"/usr/lib/modules/*/; do
   [ -d "$kver_dir" ] || continue
-  # pkgbase names the kernel (linux, linux-lts, linux-zen).
   pkgbase_file="${kver_dir}pkgbase"
   [ -f "$pkgbase_file" ] || continue
   kernel=$(cat "$pkgbase_file")
-  preset="/etc/mkinitcpio.d/${kernel}.preset"
-  cat > "$preset" <<EOF
+  cat > "$root/etc/mkinitcpio.d/${kernel}.preset" <<EOF
 # mkinitcpio preset file for the '${kernel}' package (Agave install)
 ALL_config="/etc/mkinitcpio.conf"
 ALL_kver="/boot/vmlinuz-${kernel}"
