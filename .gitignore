@@ -24,3 +24,6 @@ pkgbuilds/agave-desktop/payload/
 # Logs and OS noise
 *.log
 .DS_Store
+
+# UTM VirtFS shared folder — install logs land here during manual testing
+utm-logs/

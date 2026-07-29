@@ -59,6 +59,26 @@ if ! grep -q "Server = file://$repo_out" "$build_pacman_conf"; then
   exit 1
 fi
 
+# Testing-only overlay: when AGAVE_TESTING=1, merge iso/airootfs-testing/ into
+# the profile's airootfs (e.g. the UTM VirtFS log collector). Copied files are
+# tracked and removed after the build so the committed profile — and the final
+# ISO — never contain them.
+testing_files=()
+if [ "${AGAVE_TESTING:-0}" = 1 ] && [ -d "$iso_dir/airootfs-testing" ]; then
+  echo "==> AGAVE_TESTING=1 — overlaying iso/airootfs-testing/ (not in final ISO)"
+  while IFS= read -r rel; do
+    src="$iso_dir/airootfs-testing/$rel"
+    dst="$iso_dir/airootfs/$rel"
+    mkdir -p "$(dirname "$dst")"
+    cp -a "$src" "$dst"
+    testing_files+=("$dst")
+  done < <(cd "$iso_dir/airootfs-testing" && find . -type f -o -type l | sed 's|^\./||')
+fi
+cleanup_testing() {
+  for f in "${testing_files[@]}"; do rm -f "$f"; done
+}
+trap cleanup_testing EXIT
+
 echo "==> building Agave Linux ISO (repo: $repo_out)"
 mkarchiso -v -C "$build_pacman_conf" -w "$work" -o "$out" "$iso_dir"
 

@@ -1,0 +1,13 @@
+[Unit]
+Description=Agave testing — mirror install logs to the UTM VirtFS share
+# Testing ISOs only (build-iso.sh AGAVE_TESTING=1); never in the final ISO.
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/agave-collect-logs
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

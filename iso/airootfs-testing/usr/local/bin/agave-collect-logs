@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# TESTING ISOs ONLY (added by build-iso.sh AGAVE_TESTING=1). Mounts the UTM
+# VirtFS shared folder (tag "share") and continuously mirrors the Calamares
+# install log and journal into it, so a manual test's logs land on the host.
+# Never present in the final ISO.
+set -u
+
+share=/mnt/utm-share
+tag=share
+
+mkdir -p "$share"
+# UTM VirtFS is a 9p mount with the tag configured in the UTM share settings.
+# The default tag is "share"; try a few transports.
+if ! mountpoint -q "$share"; then
+  mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144 "$tag" "$share" 2>/dev/null \
+    || mount -t 9p -o trans=virtio,version=9p2000.L "$tag" "$share" 2>/dev/null \
+    || { echo "agave-collect-logs: could not mount VirtFS share (tag=$tag)"; }
+fi
+
+mountpoint -q "$share" || exit 0
+
+dest="$share/install-logs"
+mkdir -p "$dest"
+
+# Mirror the live Calamares log + journal every few seconds. Calamares writes
+# to ~agave/.cache/calamares/session.log (and /root/... when run as root).
+while true; do
+  for src in \
+    /home/agave/.cache/calamares/session.log \
+    /root/.cache/calamares/session.log \
+    /var/log/Calamares.log; do
+    [ -f "$src" ] && cp -f "$src" "$dest/calamares-session.log" 2>/dev/null
+  done
+  journalctl -b --no-pager > "$dest/journal.log" 2>/dev/null || true
+  sync
+  sleep 5
+done
