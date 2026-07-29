@@ -1,37 +1,49 @@
 #!/usr/bin/env bash
 # TESTING ISOs ONLY (added by build-iso.sh AGAVE_TESTING=1). Mounts the UTM
-# VirtFS shared folder (tag "share") and continuously mirrors the Calamares
-# install log and journal into it, so a manual test's logs land on the host.
-# Never present in the final ISO.
+# VirtFS shared folder (9p tag "share" — UTM's fixed device name) and mirrors
+# the Calamares install log and journal into it. Never in the final ISO.
+#
+# Hardened per docs.getutm.app/guest-support/linux/ troubleshooting:
+#   - load the 9p modules explicitly,
+#   - log which virtio mount tags are visible (distinguishes "share device not
+#     attached in UTM" from "mount failed in the guest"),
+#   - retry the mount forever instead of giving up once.
+# Diagnose in the guest with: journalctl -u agave-collect-logs
 set -u
 
 share=/mnt/utm-share
 tag=share
 
+log() { printf 'agave-collect-logs: %s\n' "$*"; }
+
+modprobe 9p 9pnet 9pnet_virtio 2>/dev/null || true
 mkdir -p "$share"
-# UTM VirtFS is a 9p mount with the tag configured in the UTM share settings.
-# The default tag is "share"; try a few transports.
-if ! mountpoint -q "$share"; then
-  mount -t 9p -o trans=virtio,version=9p2000.L,msize=262144 "$tag" "$share" 2>/dev/null \
-    || mount -t 9p -o trans=virtio,version=9p2000.L "$tag" "$share" 2>/dev/null \
-    || { echo "agave-collect-logs: could not mount VirtFS share (tag=$tag)"; }
-fi
 
-mountpoint -q "$share" || exit 0
+reported_tags=""
+mount_share() {
+  mountpoint -q "$share" && return 0
+  tags=$(cat /sys/bus/virtio/devices/*/mount_tag 2>/dev/null | tr '\n\0' '  ')
+  if [ "$tags" != "$reported_tags" ]; then
+    log "virtio mount tags visible: ${tags:-NONE (share device not attached — check UTM Sharing settings and fully power the VM off/on)}"
+    reported_tags="$tags"
+  fi
+  err=$(mount -t 9p -o trans=virtio,version=9p2000.L,rw "$tag" "$share" 2>&1) \
+    || log "mount failed: $err"
+  mountpoint -q "$share"
+}
 
-dest="$share/install-logs"
-mkdir -p "$dest"
-
-# Mirror the live Calamares log + journal every few seconds. Calamares writes
-# to ~agave/.cache/calamares/session.log (and /root/... when run as root).
 while true; do
-  for src in \
-    /home/agave/.cache/calamares/session.log \
-    /root/.cache/calamares/session.log \
-    /var/log/Calamares.log; do
-    [ -f "$src" ] && cp -f "$src" "$dest/calamares-session.log" 2>/dev/null
-  done
-  journalctl -b --no-pager > "$dest/journal.log" 2>/dev/null || true
-  sync
+  if mount_share; then
+    dest="$share/install-logs"
+    mkdir -p "$dest"
+    for src in \
+      /home/agave/.cache/calamares/session.log \
+      /root/.cache/calamares/session.log \
+      /var/log/Calamares.log; do
+      [ -f "$src" ] && cp -f "$src" "$dest/calamares-session.log" 2>/dev/null
+    done
+    journalctl -b --no-pager > "$dest/journal.log" 2>/dev/null || true
+    sync
+  fi
   sleep 5
 done
