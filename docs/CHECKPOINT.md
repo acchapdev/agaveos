@@ -59,10 +59,14 @@ only snapper/cleanup failed due to bug 4.
 
 - VM: QEMU x86_64 emulate, UEFI, ≥4 GB RAM; ISO on Desktop; ~100 GB disk.
 - VirtFS share (mode VirtFS, path `…/agavelinux/utm-logs`, 9p tag `share`) —
-  verified working. In-guest: `sudo mount -t 9p -o trans=virtio,version=9p2000.L,rw share /mnt/utm-share`.
-- Manual log mirror (paste in ghostty — Cmd+Return opens it; input must be
-  captured by the VM):
-  `sudo bash -c 'mkdir -p /mnt/utm-share/install-logs; while true; do cp /root/.cache/calamares/session.log /mnt/utm-share/install-logs/calamares-session.log 2>/dev/null; journalctl -b --no-pager > /mnt/utm-share/install-logs/journal.log 2>/dev/null; sync; sleep 5; done' &`
+  verified working.
+- **Log setup is one command now** (ghostty: Cmd+Return; input captured by VM):
+  `sudo agave-logs-setup` — mounts the share, starts/repairs the collector
+  service, falls back to an inline mirror loop, prints diagnostics if the 9p
+  device is missing. (`sudo bash /usr/local/bin/agave-logs-setup` if the exec
+  bit is missing.) On testing ISO v3+ the collector service also starts
+  automatically at boot (203/EXEC crash-loop fixed — mkarchiso strips exec
+  bits; unit now invokes via bash).
 - Launch installer manually: `calamares-launch &`.
 - Logs appear on host at `utm-logs/install-logs/`; watch with a Monitor on
   `calamares-session.log` grepping `Starting job|ERROR`.
