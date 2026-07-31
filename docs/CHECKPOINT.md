@@ -45,7 +45,9 @@ only snapper/cleanup failed due to bug 4.
    **testing ISO** with the sequence fix — last attempt failed on transient
    mirror "Broken pipe" errors; just re-run:
    `docker run --rm --privileged --platform linux/amd64 -e AGAVE_TESTING=1 -v ~/owl/mydistro:/mydistro -w /mydistro/agavelinux agave-build scripts/build-iso.sh`
-2. Copy ISO to `~/Desktop/` (NEVER overwrite an ISO a running VM is using) and
+2. ISOs stage to `~/owl/mydistro/isos/` (NOT the iCloud-synced Desktop; NEVER
+   overwrite an ISO a running VM is using — `AGAVE_STAGE_DIR` timestamping in
+   build-iso.sh handles this automatically, and `just iso` sets it) and
    re-run the manual UTM install (erase disk). Expect all 33 jobs to pass.
 3. Reboot the VM without the ISO → verify GRUB → greetd → autologin as the
    created user → Mango desktop. **That completes the Phase 2 milestone.**
@@ -57,7 +59,8 @@ only snapper/cleanup failed due to bug 4.
 
 ## UTM testing setup (working)
 
-- VM: QEMU x86_64 emulate, UEFI, ≥4 GB RAM; ISO on Desktop; ~100 GB disk.
+- VM: QEMU x86_64 emulate, UEFI, ≥4 GB RAM; ISOs in `~/owl/mydistro/isos/`;
+  ~100 GB disk.
 - VirtFS share (mode VirtFS, path `…/agavelinux/utm-logs`, 9p tag `share`) —
   verified working.
 - **Log setup is one command now** (ghostty: Cmd+Return; input captured by VM):

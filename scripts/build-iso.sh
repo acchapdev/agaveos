@@ -84,3 +84,15 @@ mkarchiso -v -C "$build_pacman_conf" -w "$work" -o "$out" "$iso_dir"
 
 echo "==> ISO built:"
 /bin/ls -lh "$out"/*.iso
+
+# Optional staging: copy the finished ISO to AGAVE_STAGE_DIR under a
+# timestamped name. Keeps test ISOs off iCloud-synced paths and avoids ever
+# overwriting an ISO a running VM has open. Unset by default (CI unaffected).
+if [ -n "${AGAVE_STAGE_DIR:-}" ]; then
+  mkdir -p "$AGAVE_STAGE_DIR"
+  iso_file=$(/bin/ls -t "$out"/agaveos-*.iso | head -1)
+  stamp=$(date +%Y%m%d-%H%M)
+  staged="$AGAVE_STAGE_DIR/$(basename "${iso_file%.iso}")-$stamp.iso"
+  cp "$iso_file" "$staged"
+  echo "==> staged: $staged"
+fi

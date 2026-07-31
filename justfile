@@ -32,8 +32,9 @@ packages: container
 # Build the live ISO with mkarchiso (inside the container)
 iso: container
   docker run --rm --privileged --platform {{platform}} \
-    -v "{{justfile_directory()}}:/work" -w /work {{image}} \
-    scripts/build-iso.sh
+    -v "{{justfile_directory()}}:/work" -w /work \
+    -v "{{justfile_directory()}}/../isos:/isos" -e AGAVE_STAGE_DIR=/isos \
+    {{image}} scripts/build-iso.sh
 
 # QEMU boot smoke test against the newest ISO in out/ (runs on the host)
 test-iso:
