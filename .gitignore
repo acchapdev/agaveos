@@ -34,3 +34,4 @@ utm-logs/
 iso/airootfs/usr/local/bin/agave-collect-logs
 iso/airootfs/etc/systemd/system/agave-collect-logs.service
 iso/airootfs/etc/systemd/system/multi-user.target.wants/agave-collect-logs.service
+iso/airootfs/usr/local/bin/agave-logs-setup

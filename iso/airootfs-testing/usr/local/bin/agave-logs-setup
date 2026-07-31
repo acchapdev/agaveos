@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# TESTING ISOs ONLY (added by build-iso.sh AGAVE_TESTING=1). One command to get
+# install logs flowing to the UTM VirtFS share (host: utm-logs/).
+#
+#   sudo agave-logs-setup        (or: sudo bash /usr/local/bin/agave-logs-setup)
+#
+# Mounts the share, starts/repairs the agave-collect-logs service, and falls
+# back to an inline mirror loop if the service is unhealthy. Safe to re-run.
+set -u
+
+[ "$(id -u)" -eq 0 ] || exec sudo bash "$0" "$@"
+
+share=/mnt/utm-share
+tag=share
+
+say() { printf 'agave-logs-setup: %s\n' "$*"; }
+
+modprobe 9p 9pnet 9pnet_virtio 2>/dev/null || true
+mkdir -p "$share"
+
+if ! mountpoint -q "$share"; then
+  if ! err=$(mount -t 9p -o trans=virtio,version=9p2000.L,rw "$tag" "$share" 2>&1); then
+    say "ERROR: could not mount the UTM share (9p tag '$tag'): $err"
+    tags=$(cat /sys/bus/virtio/devices/*/mount_tag 2>/dev/null | tr '\n' ' ')
+    if [ -n "${tags// /}" ]; then
+      say "virtio tags visible: $tags"
+    else
+      say "no virtio 9p device attached — check UTM Sharing (mode VirtFS, folder set),"
+      say "then fully power the VM off and start it again (a guest reboot is not enough)."
+    fi
+    exit 1
+  fi
+fi
+say "share mounted at $share"
+mkdir -p "$share/install-logs"
+
+# Prefer the boot service; verify it stays up.
+systemctl restart agave-collect-logs 2>/dev/null || true
+sleep 2
+if systemctl is-active --quiet agave-collect-logs 2>/dev/null; then
+  say "agave-collect-logs service running — logs mirror every 5s"
+else
+  say "service not healthy, starting fallback mirror loop instead"
+  systemctl status agave-collect-logs --no-pager 2>/dev/null | tail -4 || true
+  setsid bash /usr/local/bin/agave-collect-logs >/dev/null 2>&1 < /dev/null &
+  say "fallback mirror running (pid $!)"
+fi
+
+say "on the host, watch: utm-logs/install-logs/calamares-session.log (+ journal.log)"
+say "now launch the installer:  calamares-launch &"

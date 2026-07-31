@@ -19,6 +19,10 @@ log() { printf 'agave-collect-logs: %s\n' "$*"; }
 modprobe 9p 9pnet 9pnet_virtio 2>/dev/null || true
 mkdir -p "$share"
 
+# mkarchiso strips exec bits from the airootfs; make the interactive helper
+# runnable as a plain command (we run via bash so we don't need it ourselves).
+chmod +x /usr/local/bin/agave-logs-setup 2>/dev/null || true
+
 reported_tags=""
 mount_share() {
   mountpoint -q "$share" && return 0
