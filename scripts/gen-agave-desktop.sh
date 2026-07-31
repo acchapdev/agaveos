@@ -120,13 +120,70 @@ inst 644 "$owlmango/config/systemd/network/20-wired.network" \
 # Note: no wayland-sessions entry here — mango's own meson install ships
 # /usr/share/wayland-sessions/mango.desktop (checked at the pinned commit).
 
+# --- session launcher -> /usr/lib/agave/session ----------------------------
+# Canonical Mango launcher used by greetd on BOTH the live ISO and installed
+# systems. Handles the safe-graphics boot flag, auto-allows software rendering
+# when no GPU render node exists (VMs, broken KMS — wlroots aborts otherwise),
+# and disables Mango's animations under software rendering (at ~1 fps the
+# open/tile animations freeze mid-transform and clicks miss the drawn window).
+mkdir -p "$payload/usr/lib/agave"
+cat > "$payload/usr/lib/agave/session" << 'EOF'
+#!/usr/bin/env bash
+# Agave Linux Mango session launcher (invoked by greetd).
+set -u
+
+softmode=0
+if grep -qw 'agave.safegraphics=1' /proc/cmdline 2>/dev/null; then
+  # Explicit safe-graphics boot entry: force the pixman software renderer.
+  export WLR_RENDERER=pixman
+  export WLR_RENDERER_ALLOW_SOFTWARE=1
+  export LIBGL_ALWAYS_SOFTWARE=1
+  export WLR_NO_HARDWARE_CURSORS=1
+  softmode=1
+elif ! ls /dev/dri/renderD* >/dev/null 2>&1; then
+  # No rendering-capable GPU: allow wlroots' software fallback.
+  export WLR_RENDERER_ALLOW_SOFTWARE=1
+  export WLR_NO_HARDWARE_CURSORS=1
+  softmode=1
+fi
+
+# Manage an animations override in the per-user host.conf (sourced last by
+# mango's config.conf): off under software rendering, restored on real GPUs.
+hostconf="$HOME/.config/mango/host.conf"
+if mkdir -p "${hostconf%/*}" 2>/dev/null; then
+  touch "$hostconf" 2>/dev/null
+  if [ -w "$hostconf" ]; then
+    sed -i '/# agave-managed software-rendering BEGIN/,/# agave-managed software-rendering END/d' "$hostconf" 2>/dev/null
+    if [ "$softmode" = 1 ]; then
+      {
+        echo '# agave-managed software-rendering BEGIN'
+        echo 'animations=0'
+        echo 'layer_animations=0'
+        echo '# agave-managed software-rendering END'
+      } >> "$hostconf"
+    fi
+  fi
+fi
+
+exec mango
+EOF
+chmod 755 "$payload/usr/lib/agave/session"
+
 # --- greetd templates -> /usr/share/agave/greetd/ --------------------------
 # config-autologin.toml keeps owlmango's _USER_ placeholder; the live ISO
 # substitutes `agave`, Calamares substitutes the created user when autologin
-# is selected. config-greeter.toml is the installed-system default.
+# is selected. config-greeter.toml is the installed-system default. Both launch
+# Mango through /usr/lib/agave/session (graphics fallback, animation handling).
 mkdir -p "$payload/usr/share/agave/greetd"
-install -m 644 "$owlmango/config/greetd/config.toml" \
-  "$payload/usr/share/agave/greetd/config-autologin.toml"
+sed 's|command = "mango"|command = "/usr/lib/agave/session"|' \
+  "$owlmango/config/greetd/config.toml" \
+  > "$payload/usr/share/agave/greetd/config-autologin.toml"
+chmod 644 "$payload/usr/share/agave/greetd/config-autologin.toml"
+if ! grep -q '/usr/lib/agave/session' \
+     "$payload/usr/share/agave/greetd/config-autologin.toml"; then
+  echo "error: failed to point the autologin greetd template at the session launcher" >&2
+  exit 1
+fi
 cat > "$payload/usr/share/agave/greetd/config-greeter.toml" << 'EOF'
 # Agave Linux greetd configuration: console greeter launching Mango.
 # Installed to /etc/greetd/config.toml by the Calamares users job unless
@@ -136,7 +193,7 @@ cat > "$payload/usr/share/agave/greetd/config-greeter.toml" << 'EOF'
 vt = 1
 
 [default_session]
-command = "agreety --cmd mango"
+command = "agreety --cmd /usr/lib/agave/session"
 user = "greeter"
 EOF
 

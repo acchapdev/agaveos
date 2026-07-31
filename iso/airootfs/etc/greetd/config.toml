@@ -1,11 +1,13 @@
-# Live-session greetd: autologin the `agave` user into Mango via a small
-# launcher that applies safe-graphics env when booted with that entry. Mango
-# then runs ~/.config/mango/autostart.sh (exec-once) to bring up Wayle. Exists
+# Live-session greetd: autologin the `agave` user into Mango via the canonical
+# Agave session launcher (ships in agave-desktop at /usr/lib/agave/session; it
+# handles the safe-graphics flag, the no-GPU software-rendering fallback, and
+# disables animations under software rendering). Mango then runs
+# ~/.config/mango/autostart.sh (exec-once) to bring up Wayle. This file exists
 # only on the live ISO; the installed system's greetd config comes from the
-# Calamares users job.
+# Calamares users job (same launcher, via the greetd templates).
 [terminal]
 vt = 1
 
 [default_session]
-command = "/usr/local/bin/agave-session"
+command = "/usr/lib/agave/session"
 user = "agave"
