@@ -5,7 +5,11 @@ After=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/agave-collect-logs
+# Invoked via bash: mkarchiso copies airootfs with --no-preserve=mode, which
+# strips the exec bit, and we can't list this testing-only file in profiledef
+# file_permissions (a missing file there fails the final build). 203/EXEC
+# crash-loop otherwise.
+ExecStart=/bin/bash /usr/local/bin/agave-collect-logs
 Restart=on-failure
 RestartSec=5
 
