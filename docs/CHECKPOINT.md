@@ -1,4 +1,22 @@
-# Checkpoint — 2026-07-31
+# Checkpoint — updated 2026-08-01: PHASE 2 COMPLETE ✅
+
+**Milestone reached:** full Calamares install in UTM succeeded (all 33 jobs,
+`completion: succeeded`), and the installed system cold-boots without the ISO:
+GRUB → greetd → autologin `alan` → Mango+Wayle desktop, clean rendering, zero
+compositor errors (verified in the installed system's own journal — evidence in
+`milestones/`). Next: **Phase 3** (snapper verification — note
+`snapper create-config` warned during install and needs fixing; 3-kernel GRUB
+entries; LUKS + manual-partition test paths), per PLAN.md.
+
+New open items from Phase 2 testing:
+- `snapper create-config` fails in the chroot (warning, non-blocking) — fix in
+  Phase 3 (likely needs dbus or `--no-dbus` flag).
+- Testing-only log collector survives onto systems installed from TESTING ISOs
+  (harmless; final ISOs never contain it; optionally strip in agave-cleanup).
+
+---
+
+# Original checkpoint — 2026-07-31
 
 Resume point for Agave Linux development. Plan: [PLAN.md](PLAN.md). Repo:
 `github.com/acchapdev/agaveos` (push via `git@github-personal:...` SSH alias).

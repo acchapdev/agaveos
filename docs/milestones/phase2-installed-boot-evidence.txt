@@ -1,0 +1,3 @@
+Aug 01 07:55:15 agaveosv4 systemd[1]: Reached target Graphical Interface.
+Aug 01 07:55:15 agaveosv4 greetd[318]: pam_unix(greetd:session): session opened for user alan(uid=1001) by alan(uid=0)
+Aug 01 07:55:16 agaveosv4 (systemd)[338]: pam_unix(systemd-user:session): session opened for user alan(uid=1001) by alan(uid=0)
