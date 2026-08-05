@@ -12,26 +12,61 @@ if ! findmnt -no FSTYPE / | grep -q btrfs; then
   exit 0
 fi
 
-# Create the root config if snapper is present. snapper insists on creating its
-# own .snapshots subvolume; remove any pre-existing mountpoint first.
-if command -v snapper >/dev/null 2>&1; then
-  umount /.snapshots >/dev/null 2>&1 || true
-  rm -rf /.snapshots
-  snapper -c root create-config / >/dev/null 2>&1 || log "warning: snapper create-config failed"
-  # Sensible retention for a desktop.
-  snapper -c root set-config \
-    TIMELINE_CREATE=yes TIMELINE_CLEANUP=yes \
-    TIMELINE_LIMIT_HOURLY=5 TIMELINE_LIMIT_DAILY=7 \
-    TIMELINE_LIMIT_WEEKLY=0 TIMELINE_LIMIT_MONTHLY=0 \
-    NUMBER_LIMIT=10 NUMBER_LIMIT_IMPORTANT=10 >/dev/null 2>&1 || true
-  systemctl enable snapper-timeline.timer snapper-cleanup.timer >/dev/null 2>&1 || true
-  log "configured snapper root config"
+if ! command -v snapper >/dev/null 2>&1; then
+  log "warning: snapper not installed in target; skipping"
+  exit 0
 fi
 
-# grub-btrfs: watch snapshots and regenerate the GRUB submenu.
+# --- create the root config -------------------------------------------------
+# snapper's CLI talks to snapperd over DBus by default, which does not exist in
+# the Calamares chroot: every call died with
+#   Failure (org.freedesktop.DBus.Error.FileNotFound).
+# --no-dbus makes libsnapper act directly on the filesystem. It is required for
+# EVERY snapper invocation here, not just create-config.
+snapper_cmd() { snapper --no-dbus -c root "$@"; }
+
+if [ -f /etc/snapper/configs/root ]; then
+  log "snapper root config already exists; leaving it alone"
+else
+  # create-config insists on creating its own .snapshots subvolume and fails
+  # with "already exists" if anything is in the way (unpackfs may have copied a
+  # plain directory from the live squashfs).
+  umount /.snapshots >/dev/null 2>&1 || true
+  rm -rf /.snapshots
+
+  if err=$(snapper_cmd create-config / 2>&1); then
+    log "created snapper root config"
+  else
+    log "warning: snapper create-config failed: ${err:-unknown error}"
+  fi
+fi
+
+# --- retention tuned for a desktop -----------------------------------------
+if [ -f /etc/snapper/configs/root ]; then
+  if err=$(snapper_cmd set-config \
+      TIMELINE_CREATE=yes TIMELINE_CLEANUP=yes \
+      TIMELINE_LIMIT_HOURLY=5 TIMELINE_LIMIT_DAILY=7 \
+      TIMELINE_LIMIT_WEEKLY=0 TIMELINE_LIMIT_MONTHLY=0 \
+      NUMBER_LIMIT=10 NUMBER_LIMIT_IMPORTANT=10 2>&1); then
+    log "applied snapper retention policy"
+  else
+    log "warning: snapper set-config failed: ${err:-unknown error}"
+  fi
+
+  # /.snapshots is root-only by default; that is what we want on a desktop.
+  systemctl enable snapper-timeline.timer snapper-cleanup.timer >/dev/null 2>&1 \
+    && log "enabled snapper timers" \
+    || log "warning: could not enable snapper timers"
+fi
+
+# --- grub-btrfs: watch snapshots and regenerate the GRUB submenu ------------
+# grub-btrfsd's stock ExecStart watches /.snapshots, which matches our layout.
 if systemctl list-unit-files grub-btrfsd.service >/dev/null 2>&1; then
-  systemctl enable grub-btrfsd.service >/dev/null 2>&1 || true
-  log "enabled grub-btrfsd"
+  systemctl enable grub-btrfsd.service >/dev/null 2>&1 \
+    && log "enabled grub-btrfsd" \
+    || log "warning: could not enable grub-btrfsd"
+else
+  log "grub-btrfsd not present; skipping snapshot submenu"
 fi
 
 log "done"
