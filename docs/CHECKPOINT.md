@@ -87,6 +87,15 @@ Key architecture decisions that must survive refactors:
 (plain / LUKS / manual partitioning) with the exact verification commands and
 expected output for each fix.
 
+**Testing ISO ready (built 2026-08-05):**
+`~/owl/mydistro/isos/agaveos-2026.08-x86_64-20260805-1927.iso` (4.2 GB,
+`AGAVE_202608`, built with `AGAVE_TESTING=1` so the log collector auto-starts).
+All six fixes were confirmed *inside the shipped squashfs*, not just in git:
+`--no-dbus` ×2, `useSystemdHook: true`, `always_use_defaults: true` +
+`GRUB_TOP_LEVEL`, `bootloaderEntryName: "Agave"`, `luksbootkeyfile` in the
+sequence with its `.so` present, and agave-cleanup stripping the collector.
+All 3 kernels + initramfs are on the medium and the UEFI boot menu is intact.
+
 5. Confirm the above on a real install: snapper config present + `.snapshots`
    subvolume + timers, a GRUB menu with all 3 kernels defaulting to `linux`,
    and the snapshot submenu appearing after a snapshot exists.
