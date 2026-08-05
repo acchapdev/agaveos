@@ -83,6 +83,10 @@ Key architecture decisions that must survive refactors:
 
 ### Still to verify (needs the user's UTM loop)
 
+**→ Run [`phase3-utm-checklist.md`](phase3-utm-checklist.md)** — three runs
+(plain / LUKS / manual partitioning) with the exact verification commands and
+expected output for each fix.
+
 5. Confirm the above on a real install: snapper config present + `.snapshots`
    subvolume + timers, a GRUB menu with all 3 kernels defaulting to `linux`,
    and the snapshot submenu appearing after a snapshot exists.
