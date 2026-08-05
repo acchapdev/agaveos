@@ -26,6 +26,15 @@ rm -f /etc/systemd/system/pacman-init.service
 rm -f /etc/systemd/system/etc-pacman.d-gnupg.mount
 log "removed live-session artifacts"
 
+# --- testing-ISO log collector (iso/airootfs-testing) -----------------------
+# Only present when the ISO was built with AGAVE_TESTING=1. It is a live-medium
+# debugging aid (streams installer logs to the host VirtFS share) and has no
+# business on an installed system, so strip it here rather than shipping it.
+rm -f /usr/local/bin/agave-collect-logs /usr/local/bin/agave-logs-setup
+rm -f /etc/systemd/system/agave-collect-logs.service
+rm -f /etc/systemd/system/multi-user.target.wants/agave-collect-logs.service
+log "removed testing log collector (no-op on non-testing ISOs)"
+
 # --- restore normal first-boot behavior ------------------------------------
 # The live ISO masked systemd-firstboot and shipped machine-id=uninitialized;
 # the machineid module already wrote a real id. Unmask firstboot (harmless on
