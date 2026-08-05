@@ -20,7 +20,9 @@ strings:
     shortVersion:        "2026.07"
     versionedName:       "Agave Linux 2026.07"
     shortVersionedName:  "Agave 2026.07"
-    bootloaderEntryName: "Agave Linux"
+    # Becomes GRUB_DISTRIBUTOR. GRUB appends "Linux" itself, so "Agave Linux"
+    # here renders as "Agave Linux Linux" in the boot menu; keep it as "Agave".
+    bootloaderEntryName: "Agave"
     productUrl:          "https://github.com/acchapdev/agaveos"
     supportUrl:          "https://github.com/acchapdev/agaveos/issues"
     knownIssuesUrl:      "https://github.com/acchapdev/agaveos/issues"
