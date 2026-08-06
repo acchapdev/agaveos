@@ -1,4 +1,4 @@
-# Checkpoint — 2026-08-06 · Phases 0–2 COMPLETE ✅ · Phase 3 Runs 1–2 PASSED, Run 3 pending
+# Checkpoint — 2026-08-06 · Phases 0–3 COMPLETE ✅ · debts next, then Phase 4/5
 
 Resume point for Agave Linux development. Plan: [PLAN.md](PLAN.md). Repo:
 `github.com/acchapdev/agaveos` (push via the `git@github-personal:` SSH alias;
@@ -12,9 +12,14 @@ run `gh auth status` first — must be acchapdev, never acchapm1).
 
 ## RESUME HERE (2026-08-06)
 
-All Phase 3 code work is **committed and pushed** (`main` @ `b0f05bd`, working
-tree clean apart from the untracked `docs/agave-linux-handoff-2026-08-01.md`).
-CI is green end-to-end: packages + ISO both succeeded on the native runner.
+All Phase 3 code work is **committed** (code through `b0f05bd`; this session
+added verification-record commits on top). CI is green end-to-end: packages +
+ISO both succeeded on the native runner. **Phase 3 is now fully verified — all
+three UTM runs passed.** Untracked in the working tree:
+`docs/agave-linux-handoff-2026-08-01.md` and `img/`.
+
+⚠️ **These commits have not been pushed yet** — push with
+`git push origin main` (the `github-personal` SSH alias handles identity).
 
 **Run 1 (plain install) PASSED on 2026-08-06.** The user worked through every
 command in [`phase3-utm-checklist.md`](phase3-utm-checklist.md) Run 1 and all
@@ -53,20 +58,93 @@ The mkinitcpio `Possibly missing firmware for module:` warnings (qat_6xxx,
 ast, aic94xx, bfa, qed, qla*, wd719x, xhci_pci_renesas) are stock Arch noise
 for hardware the VM lacks — unrelated to any Agave change, safe to ignore.
 
-**The next action is Run 3 — manual partitioning.** Nothing is blocked on code.
+**Run 3 (manual partitioning) PASSED on 2026-08-06.** All 35 jobs (35 not 34 —
+manual partitioning adds two explicit partition-delete jobs), zero real errors,
+Calamares shut down cleanly. Evidence in
+`utm-logs/archive/run3-manual-20260806-1559/`:
 
-- Testing ISO: `~/owl/mydistro/isos/agaveos-2026.08-x86_64-20260805-1927.iso`
-  (4.2 GB, `AGAVE_202608`, `AGAVE_TESTING=1`). Note the version rolled to
-  **2026.08**, so it will not collide with the July ISOs.
-- Run 3 confirms the `@`/`@home`/`@log`/`@pkg` subvolume layout is applied
-  outside the erase-disk path — `agave-snapper` depends on `@` existing.
+- The subvolume layout is correct outside the erase-disk path — this was the
+  whole point of the run, since `agave-snapper` depends on `@` existing. Job 11
+  (`mount`) created and mounted `@`→`/`, `@home`→`/home`, `@log`→`/var/log`,
+  `@pkg`→`/var/cache/pacman/pkg`, all with
+  `noatime,compress=zstd:1,space_cache=v2`; ESP mounted at `/efi` with
+  `fmask=0137,dmask=0027`.
+- `agave-snapper` did full work here too: created the root config, applied
+  retention, enabled the snapper timers and grub-btrfsd.
+- snapper pre/post snapshots ran during the package transaction (`(1/1)
+  Performing snapper pre snapshots` / `(6/6) ... post snapshots`), so the
+  pacman hooks are live on this path.
+
+**Beware grepping the Calamares log for `ERROR` case-insensitively** — it
+matches four benign lines: two `WARNING`s whose DBus error *type names* contain
+"Error", the literal `Installation finished. No error reported.`, and
+grub-btrfs bug-report boilerplate. Match case-sensitively or on `[Ee]RROR:`.
+
+## Next: clear the open debts (user's call, 2026-08-06)
+
+Phase 3 is done. The chosen next step is **clearing the open debts** before
+Phase 4 (NVIDIA) or Phase 5 (CI QEMU install test).
+
+### Debt 1 — GPG repo signing (BLOCKED ON USER; cannot be automated)
+
+All the plumbing already exists and is correct — this needs only the key.
+`build-packages.sh` threads `AGAVE_SIGN` into `makepkg --sign`, copies `.sig`
+files, and runs `repo-add --sign --verify`; `packages.yml` detects the
+`AGAVE_GPG_PRIVATE_KEY` secret, imports it as the `builder` user, and degrades
+to an unsigned build with a `::warning::` when it is absent (which is why every
+build so far has worked). `agave-keyring` self-gates: `build-packages.sh` skips
+it while `pkgbuilds/agave-keyring/keyring/agave-trusted` is empty, so the build
+starts including it the moment the key exists.
+
+Three steps, all requiring the user (private key generation + repo secret):
+
+1. `./scripts/gen-signing-key.sh` — generates an ed25519 key in the user's real
+   GPG keyring, writes the public keyring/trust files into
+   `pkgbuilds/agave-keyring/keyring/` (committed), and exports the private key
+   to `agave-signing-key.private.asc` (gitignored).
+2. `gh secret set AGAVE_GPG_PRIVATE_KEY < agave-signing-key.private.asc`
+3. Back the private key up to a password manager, then `rm -P` the local copy.
+
+⚠️ **Expect step 2 to fail with 403.** `gh` authenticates as the *active*
+account (acchapm1) while the repo is acchapdev/agaveos reached via the
+`github-personal` SSH alias — the same token-scope mismatch that already breaks
+`gh workflow run`. Run `gh repo view` first to see what `gh` thinks it is
+targeting; the secret may need to be set from the GitHub web UI instead.
+
+**Only after a signed `packages.yml` run has published:** uncomment
+`agave-keyring` in `iso/packages.x86_64` (~line 101). Doing it earlier breaks
+the ISO build, because the package will not be in the repo yet.
+
+### Debt 2 — stale collector debt entry — DONE (2026-08-06)
+
+Verified and removed from Open items. `agave-cleanup` deletes both binaries,
+the service unit and its `multi-user.target.wants` symlink, and Run 1 confirmed
+both are absent from the installed system. Closed by `8b40ade`.
+
+### Debt 3 — collector rewrites its log file (suggested, not yet done)
+
+`iso/airootfs-testing/usr/local/bin/agave-collect-logs` does `cp -f` of the
+whole session log into the share every 5 s. Because the file is replaced rather
+than appended to, host-side `tail -f` breaks — it re-reads from the top each
+cycle and replays the same lines forever (this happened this session; a Monitor
+had to be killed). It also makes mtime an unreliable liveness signal: during
+Run 3 the log looked frozen at 15:27 for ~25 min while unpackfs ran, then
+jumped straight to job 32. **Poll the file, do not `tail -f` it.** Writing to a
+temp file and `mv`-ing atomically would fix this and is worth doing before
+Phase 5 builds a CI install test on top of this collector.
+
+## Testing-loop gotchas (learned the hard way this session)
+
 - **Archive `utm-logs/install-logs/` before each run** — the collector
-  overwrites those files, and a stale log is easy to misread as live progress
-  (that happened this session). Prior runs are under `utm-logs/archive/`.
-- Collector note: after Run 1 the host-side `install-logs/` was empty even
-  though streaming had worked during the run; during Run 2 it streamed fine
-  start to finish. If a stream goes quiet mid-run, check
-  `journalctl -u agave-collect-logs` in the guest.
+  overwrites those files, and a stale log is easy to misread as live progress.
+  All three runs are archived under `utm-logs/archive/run{1,2,3}-*`.
+- After Run 1 the host-side `install-logs/` came up empty even though streaming
+  had worked during the run; Runs 2 and 3 streamed fine. Unexplained, low
+  priority. If a stream goes quiet, check `journalctl -u agave-collect-logs` in
+  the guest — but remember a quiet log during unpackfs is normal (see Debt 3).
+- Testing ISO used for all three runs:
+  `~/owl/mydistro/isos/agaveos-2026.08-x86_64-20260805-1927.iso` (4.2 GB,
+  `AGAVE_202608`, `AGAVE_TESTING=1`).
 
 ## Proven working (do not re-verify)
 
@@ -95,9 +173,9 @@ Key architecture decisions that must survive refactors:
 - owlmango (`~/owl/mydistro/owlmango`) stays upstream source of truth;
   regenerate the desktop payload with `scripts/gen-agave-desktop.sh`.
 
-## Phase 3 progress
+## Phase 3 — COMPLETE (all six fixes verified on real installs 2026-08-06)
 
-### Done in code, verified in containers — needs a UTM install to confirm
+### The fixes, and why each was made
 
 1. **snapper in the chroot — FIXED** (`5cbaac3`). Root cause was not a guess:
    reproduced in a pacstrapped btrfs chroot, `create-config` died with
@@ -145,33 +223,33 @@ Key architecture decisions that must survive refactors:
      `GRUB_DISTRIBUTOR`, which comes from branding's `bootloaderEntryName`, not
      from `defaults`). `bootloaderEntryName` is now `"Agave"`.
 
-### Still to verify (needs the user's UTM loop)
+5. **LUKS keyfile** (`c23c814`) — `luksbootkeyfile` added to the sequence so an
+   encrypted install does not ask for the passphrase twice. Sequence went from
+   33 to 34 jobs.
 
-**→ Run [`phase3-utm-checklist.md`](phase3-utm-checklist.md)** — Run 1 (plain)
-and Run 2 (LUKS) both **PASSED 2026-08-06**. Remaining: **Run 3 (manual
-partitioning)**, with the exact verification commands and expected output.
+### Verification status — ALL THREE RUNS PASSED (2026-08-06)
 
-All six Phase 3 fixes are now confirmed on real installs. Run 3 is a scope
-check on the subvolume layout rather than a test of any specific fix.
+Ran against `~/owl/mydistro/isos/agaveos-2026.08-x86_64-20260805-1927.iso`
+(4.2 GB, `AGAVE_202608`, `AGAVE_TESTING=1`). Logs archived under
+`utm-logs/archive/run{1,2,3}-*`. Procedure:
+[`phase3-utm-checklist.md`](phase3-utm-checklist.md).
 
-**Testing ISO ready (built 2026-08-05):**
-`~/owl/mydistro/isos/agaveos-2026.08-x86_64-20260805-1927.iso` (4.2 GB,
-`AGAVE_202608`, built with `AGAVE_TESTING=1` so the log collector auto-starts).
-All six fixes were confirmed *inside the shipped squashfs*, not just in git:
-`--no-dbus` ×2, `useSystemdHook: true`, `always_use_defaults: true` +
-`GRUB_TOP_LEVEL`, `bootloaderEntryName: "Agave"`, `luksbootkeyfile` in the
-sequence with its `.so` present, and agave-cleanup stripping the collector.
-All 3 kernels + initramfs are on the medium and the UEFI boot menu is intact.
+| Run | Path | Result |
+|-----|------|--------|
+| 1 | plain (erase disk, btrfs) | ✅ 34 jobs, full checklist verified on-device |
+| 2 | **LUKS** | ✅ 34 jobs, `sd-encrypt` built, one passphrase prompt |
+| 3 | manual partitioning | ✅ 35 jobs, `@/@home/@log/@pkg` correct, snapper ran |
 
-5. Confirm the above on a real install: snapper config present + `.snapshots`
-   subvolume + timers, a GRUB menu with all 3 kernels defaulting to `linux`,
-   and the snapshot submenu appearing after a snapshot exists.
-6. **LUKS + manual partitioning** in UTM (Phase 3.3). Config analysis says this
-   should now work: `luksGeneration: luks2`, `allowManualPartitioning: true`,
-   and because the ESP mounts at `/efi` (no `/boot` partition) Calamares sets
-   `GRUB_ENABLE_CRYPTODISK=y` automatically and emits `rd.luks.uuid=` to match
-   the now-correct `sd-encrypt` hook. Untested on real hardware.
-7. Then Phase 4 (NVIDIA) and Phase 5 (CI QEMU install test) per PLAN.md.
+What each run proved is written up in the RESUME section above. The short
+version: fixes #1–#4 confirmed by Run 1, #2 and #5 confirmed decisively by
+Run 2 (the `-> Running build hook: [sd-encrypt]` line is the one that matters —
+with `useSystemdHook: false` that install would have been unbootable), and the
+subvolume layout confirmed outside the erase-disk path by Run 3.
+
+**Next per PLAN.md:** clear the open debts (see RESUME above), then Phase 4
+(NVIDIA) and Phase 5 (CI QEMU install test). Phase 5 is worth prioritising —
+it would automate exactly the manual UTM verification this session spent hours
+on, and would catch this class of regression on every push.
 
 Note: `GRUB_DEFAULT: "saved"` is set without `GRUB_SAVEDEFAULT`. Calamares only
 downgrades `saved` on btrfs when `GRUB_SAVEDEFAULT` is present, so nothing
@@ -191,17 +269,29 @@ makes `linux`. Left as-is.
   VirtFS share (tag `share`) → host `utm-logs/`; the log collector auto-starts
   on testing ISOs; `sudo agave-logs-setup` in ghostty (Cmd+Return) repairs it;
   installer relaunch: `calamares-launch &`. Watch installs from the host by
-  grepping `utm-logs/install-logs/calamares-session.log` for
-  `Starting job|ERROR`.
+  **polling** (not `tail -f` — see Debt 3)
+  `utm-logs/install-logs/calamares-session.log` for `Starting job|ERROR`,
+  case-sensitively. A quiet log during `unpackfs` is normal: that job takes
+  ~25 min under emulation and writes rsync progress to the terminal, not the
+  log, so mtime can look frozen while the install is healthy.
 
 ## Open items / debts
 
-- GPG signing key not generated (`scripts/gen-signing-key.sh`, secret
-  `AGAVE_GPG_PRIVATE_KEY`; re-enable `agave-keyring` in packages.x86_64 after).
-- Testing-ISO installs carry the log collector onto disk (harmless, testing
-  only) — optionally strip in `agave-cleanup`.
+- **GPG signing key not generated** — the one real blocker, and it needs the
+  user. Full detail in the RESUME section above (Debt 1): plumbing is complete,
+  `gh secret set` will likely 403 on the acchapm1/acchapdev mismatch, and
+  `agave-keyring` in `iso/packages.x86_64` must stay commented until a signed
+  packages run has published.
+- **Collector rewrites its log rather than appending** (Debt 3 above) — breaks
+  host-side `tail -f` and makes mtime a misleading liveness signal. Worth
+  fixing before Phase 5 builds a CI install test on this collector.
 - gh manual `workflow run` → 403 (token scope); push-triggered
-  `workflow_run` chain packages→iso works.
+  `workflow_run` chain packages→iso works. Same root cause as the secret issue.
 - mkarchiso bootmode deprecation warnings (cosmetic rename someday).
 - Headless QEMU driver for reference: `/tmp/qmp-drive.sh` pattern (needs
   `-device qemu-xhci -device usb-tablet` for absolute mouse).
+
+~~Testing-ISO installs carry the log collector onto disk~~ — **CLOSED**
+(`8b40ade`). `agave-cleanup` removes both binaries, the unit, and its
+`multi-user.target.wants` symlink; Run 1 confirmed both are absent from the
+installed system.
