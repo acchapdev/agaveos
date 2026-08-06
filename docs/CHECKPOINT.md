@@ -1,4 +1,4 @@
-# Checkpoint — 2026-08-06 · Phases 0–2 COMPLETE ✅ · Phase 3 code done, needs UTM
+# Checkpoint — 2026-08-06 · Phases 0–2 COMPLETE ✅ · Phase 3 Run 1 PASSED, Runs 2–3 pending
 
 Resume point for Agave Linux development. Plan: [PLAN.md](PLAN.md). Repo:
 `github.com/acchapdev/agaveos` (push via the `git@github-personal:` SSH alias;
@@ -16,23 +16,37 @@ All Phase 3 code work is **committed and pushed** (`main` @ `b0f05bd`, working
 tree clean apart from the untracked `docs/agave-linux-handoff-2026-08-01.md`).
 CI is green end-to-end: packages + ISO both succeeded on the native runner.
 
-**The next action is a UTM install run** — nothing is blocked on code.
+**Run 1 (plain install) PASSED on 2026-08-06.** The user worked through every
+command in [`phase3-utm-checklist.md`](phase3-utm-checklist.md) Run 1 and all
+of it verified correct: GRUB shows 3 kernels defaulting to plain `linux` with
+the un-doubled "Agave Linux" title, the `defaults:` block is live
+(`GRUB_TOP_LEVEL` present), the systemd hook stack is in `mkinitcpio.conf`,
+snapper works with a real `.snapshots` subvolume and enabled timers, the
+testing collector is stripped from the installed system, and the snapshot
+submenu appears after creating a snapshot. Fixes #1 (snapper `--no-dbus`),
+#2 (`useSystemdHook`), #3 (collector stripping) and #4 (3 kernels + GRUB) are
+now confirmed on a real install.
+
+**The next action is Run 2 — the LUKS install.** Nothing is blocked on code.
 
 - Testing ISO: `~/owl/mydistro/isos/agaveos-2026.08-x86_64-20260805-1927.iso`
   (4.2 GB, `AGAVE_202608`, `AGAVE_TESTING=1`). Note the version rolled to
   **2026.08**, so it will not collide with the July ISOs.
-- Follow [`phase3-utm-checklist.md`](phase3-utm-checklist.md): three runs
-  (plain / **LUKS** / manual partitioning).
-- An install was started on 2026-08-06 but only reached Calamares startup
-  (requirements check) before the host was rebooted; that partial log is in
-  `utm-logs/archive/calamares-session-20260806-startup.log`. **Nothing was
-  verified by it** — start Run 1 from scratch.
+- Run 2 is the decisive one: it is the only path that exercises
+  `sd-encrypt` + `rd.luks.uuid=` + `luksbootkeyfile`, and it has never been
+  tested. If `useSystemdHook` had stayed false this install would be
+  unbootable, so a successful cold boot here is the real proof.
 - One real signal was captured from an earlier run: the sequence now reports
   **34 jobs (was 33)**, and `CppJobModule "luksbootkeyfile@luksbootkeyfile"
   loading complete.` — the new module resolves and loads.
 - **Archive `utm-logs/install-logs/` before each run** — the collector
   overwrites those files, and a stale log is easy to misread as live progress
-  (that happened this session).
+  (that happened this session). Cleared for Run 2 on 2026-08-06; prior
+  contents are under `utm-logs/archive/`.
+- Watch for a collector quirk seen after Run 1: `utm-logs/install-logs/` was
+  empty on the host afterwards even though streaming worked during the run.
+  Not understood yet — if Run 2's stream goes quiet, check
+  `journalctl -u agave-collect-logs` in the guest.
 
 ## Proven working (do not re-verify)
 
@@ -113,9 +127,10 @@ Key architecture decisions that must survive refactors:
 
 ### Still to verify (needs the user's UTM loop)
 
-**→ Run [`phase3-utm-checklist.md`](phase3-utm-checklist.md)** — three runs
-(plain / LUKS / manual partitioning) with the exact verification commands and
-expected output for each fix.
+**→ Run [`phase3-utm-checklist.md`](phase3-utm-checklist.md)** — Run 1 (plain)
+**PASSED 2026-08-06**. Remaining: **Run 2 (LUKS)** and **Run 3 (manual
+partitioning)**, with the exact verification commands and expected output for
+each fix.
 
 **Testing ISO ready (built 2026-08-05):**
 `~/owl/mydistro/isos/agaveos-2026.08-x86_64-20260805-1927.iso` (4.2 GB,
