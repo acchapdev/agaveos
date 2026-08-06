@@ -1,8 +1,38 @@
-# Checkpoint — 2026-08-01 · Phases 0–2 COMPLETE ✅ · Next: Phase 3
+# Checkpoint — 2026-08-06 · Phases 0–2 COMPLETE ✅ · Phase 3 code done, needs UTM
 
 Resume point for Agave Linux development. Plan: [PLAN.md](PLAN.md). Repo:
 `github.com/acchapdev/agaveos` (push via the `git@github-personal:` SSH alias;
 run `gh auth status` first — must be acchapdev, never acchapm1).
+
+> **Note on identity:** `gh auth status` currently shows **acchapm1 as the
+> active account**, but pushes still go to the right place — the `origin`
+> remote uses the `github-personal` SSH alias, and `ssh -T git@github-personal`
+> authenticates as **acchapdev**. Verify the SSH alias, not the gh active
+> account.
+
+## RESUME HERE (2026-08-06)
+
+All Phase 3 code work is **committed and pushed** (`main` @ `b0f05bd`, working
+tree clean apart from the untracked `docs/agave-linux-handoff-2026-08-01.md`).
+CI is green end-to-end: packages + ISO both succeeded on the native runner.
+
+**The next action is a UTM install run** — nothing is blocked on code.
+
+- Testing ISO: `~/owl/mydistro/isos/agaveos-2026.08-x86_64-20260805-1927.iso`
+  (4.2 GB, `AGAVE_202608`, `AGAVE_TESTING=1`). Note the version rolled to
+  **2026.08**, so it will not collide with the July ISOs.
+- Follow [`phase3-utm-checklist.md`](phase3-utm-checklist.md): three runs
+  (plain / **LUKS** / manual partitioning).
+- An install was started on 2026-08-06 but only reached Calamares startup
+  (requirements check) before the host was rebooted; that partial log is in
+  `utm-logs/archive/calamares-session-20260806-startup.log`. **Nothing was
+  verified by it** — start Run 1 from scratch.
+- One real signal was captured from an earlier run: the sequence now reports
+  **34 jobs (was 33)**, and `CppJobModule "luksbootkeyfile@luksbootkeyfile"
+  loading complete.` — the new module resolves and loads.
+- **Archive `utm-logs/install-logs/` before each run** — the collector
+  overwrites those files, and a stale log is easy to misread as live progress
+  (that happened this session).
 
 ## Proven working (do not re-verify)
 
