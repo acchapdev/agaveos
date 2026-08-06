@@ -1,4 +1,4 @@
-# Checkpoint — 2026-08-06 · Phases 0–2 COMPLETE ✅ · Phase 3 Run 1 PASSED, Runs 2–3 pending
+# Checkpoint — 2026-08-06 · Phases 0–2 COMPLETE ✅ · Phase 3 Runs 1–2 PASSED, Run 3 pending
 
 Resume point for Agave Linux development. Plan: [PLAN.md](PLAN.md). Repo:
 `github.com/acchapdev/agaveos` (push via the `git@github-personal:` SSH alias;
@@ -27,25 +27,45 @@ submenu appears after creating a snapshot. Fixes #1 (snapper `--no-dbus`),
 #2 (`useSystemdHook`), #3 (collector stripping) and #4 (3 kernels + GRUB) are
 now confirmed on a real install.
 
-**The next action is Run 2 — the LUKS install.** Nothing is blocked on code.
+**Run 2 (LUKS install) PASSED on 2026-08-06 — the decisive run.** This was the
+only path exercising `sd-encrypt` + `rd.luks.uuid=` + `luksbootkeyfile`, and
+had `useSystemdHook` stayed false it would have produced an unbootable system.
+It cold-booted to the desktop and the user confirmed all the checklist output.
+Evidence in `utm-logs/archive/run2-luks-20260806-1146/`:
+
+- All **34 jobs ran with zero ERROR lines**.
+- `Configuring LUKS key file.` (25/34) reported `There are 1 LUKS partitions`
+  — real work, not the Run 1 no-op — found `LUKS 2 ... on device "/dev/sda2"`
+  (so `luksGeneration: luks2` took effect), and ran `luksAddKey`. That call
+  took ~44 s, which is argon2 doing a genuine key enrollment.
+- `crypto_keyfile.bin` was created `-rw------- root root` in the target.
+- mkinitcpio logged **`-> Running build hook: [sd-encrypt]`** — the systemd
+  crypt hook, NOT the legacy `encrypt` hook. This is the single most important
+  line in the run; it is what fix #2 existed to produce.
+- grubcfg then ran its `grep -q "^HOOKS.*systemd" /etc/mkinitcpio.conf` probe
+  after initcpiocfg had already written that stack, so it emitted
+  `rd.luks.uuid=` rather than `cryptdevice=` — the two halves agree.
+- **The passphrase was requested exactly once** (by GRUB). That confirms the
+  initramfs picked up `/crypto_keyfile.bin` instead of prompting a second
+  time, i.e. the `luksbootkeyfile` module added in `c23c814` works.
+
+The mkinitcpio `Possibly missing firmware for module:` warnings (qat_6xxx,
+ast, aic94xx, bfa, qed, qla*, wd719x, xhci_pci_renesas) are stock Arch noise
+for hardware the VM lacks — unrelated to any Agave change, safe to ignore.
+
+**The next action is Run 3 — manual partitioning.** Nothing is blocked on code.
 
 - Testing ISO: `~/owl/mydistro/isos/agaveos-2026.08-x86_64-20260805-1927.iso`
   (4.2 GB, `AGAVE_202608`, `AGAVE_TESTING=1`). Note the version rolled to
   **2026.08**, so it will not collide with the July ISOs.
-- Run 2 is the decisive one: it is the only path that exercises
-  `sd-encrypt` + `rd.luks.uuid=` + `luksbootkeyfile`, and it has never been
-  tested. If `useSystemdHook` had stayed false this install would be
-  unbootable, so a successful cold boot here is the real proof.
-- One real signal was captured from an earlier run: the sequence now reports
-  **34 jobs (was 33)**, and `CppJobModule "luksbootkeyfile@luksbootkeyfile"
-  loading complete.` — the new module resolves and loads.
+- Run 3 confirms the `@`/`@home`/`@log`/`@pkg` subvolume layout is applied
+  outside the erase-disk path — `agave-snapper` depends on `@` existing.
 - **Archive `utm-logs/install-logs/` before each run** — the collector
   overwrites those files, and a stale log is easy to misread as live progress
-  (that happened this session). Cleared for Run 2 on 2026-08-06; prior
-  contents are under `utm-logs/archive/`.
-- Watch for a collector quirk seen after Run 1: `utm-logs/install-logs/` was
-  empty on the host afterwards even though streaming worked during the run.
-  Not understood yet — if Run 2's stream goes quiet, check
+  (that happened this session). Prior runs are under `utm-logs/archive/`.
+- Collector note: after Run 1 the host-side `install-logs/` was empty even
+  though streaming had worked during the run; during Run 2 it streamed fine
+  start to finish. If a stream goes quiet mid-run, check
   `journalctl -u agave-collect-logs` in the guest.
 
 ## Proven working (do not re-verify)
@@ -128,9 +148,11 @@ Key architecture decisions that must survive refactors:
 ### Still to verify (needs the user's UTM loop)
 
 **→ Run [`phase3-utm-checklist.md`](phase3-utm-checklist.md)** — Run 1 (plain)
-**PASSED 2026-08-06**. Remaining: **Run 2 (LUKS)** and **Run 3 (manual
-partitioning)**, with the exact verification commands and expected output for
-each fix.
+and Run 2 (LUKS) both **PASSED 2026-08-06**. Remaining: **Run 3 (manual
+partitioning)**, with the exact verification commands and expected output.
+
+All six Phase 3 fixes are now confirmed on real installs. Run 3 is a scope
+check on the subvolume layout rather than a test of any specific fix.
 
 **Testing ISO ready (built 2026-08-05):**
 `~/owl/mydistro/isos/agaveos-2026.08-x86_64-20260805-1927.iso` (4.2 GB,
