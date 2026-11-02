@@ -36,6 +36,23 @@ mount_share() {
   mountpoint -q "$share"
 }
 
+# Publish $1 as $2 atomically: write a dot-temp file in the same directory,
+# then rename over the target. Host-side readers never see a truncated or
+# half-written file (a plain cp/redirect truncates first, so a reader mid-copy
+# replays from the top). Skips the rename when content is unchanged, so the
+# destination's mtime only moves when the log really grew — a usable liveness
+# signal. Host-side: poll the file; `tail -f` still follows the old inode.
+publish() {
+  src=$1 out=$2
+  tmp="$(dirname "$out")/.$(basename "$out").tmp"
+  cp -f "$src" "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+  if [ -f "$out" ] && cmp -s "$tmp" "$out"; then
+    rm -f "$tmp"
+  else
+    mv -f "$tmp" "$out"
+  fi
+}
+
 while true; do
   if mount_share; then
     dest="$share/install-logs"
@@ -44,9 +61,10 @@ while true; do
       /home/agave/.cache/calamares/session.log \
       /root/.cache/calamares/session.log \
       /var/log/Calamares.log; do
-      [ -f "$src" ] && cp -f "$src" "$dest/calamares-session.log" 2>/dev/null
+      [ -f "$src" ] && publish "$src" "$dest/calamares-session.log"
     done
-    journalctl -b --no-pager > "$dest/journal.log" 2>/dev/null || true
+    journalctl -b --no-pager > /tmp/agave-journal.tmp 2>/dev/null \
+      && publish /tmp/agave-journal.tmp "$dest/journal.log"
     sync
   fi
   sleep 5

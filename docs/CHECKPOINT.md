@@ -121,7 +121,7 @@ Verified and removed from Open items. `agave-cleanup` deletes both binaries,
 the service unit and its `multi-user.target.wants` symlink, and Run 1 confirmed
 both are absent from the installed system. Closed by `8b40ade`.
 
-### Debt 3 — collector rewrites its log file (suggested, not yet done)
+### Debt 3 — collector rewrites its log file — FIXED (untested on a live ISO)
 
 `iso/airootfs-testing/usr/local/bin/agave-collect-logs` does `cp -f` of the
 whole session log into the share every 5 s. Because the file is replaced rather
@@ -129,7 +129,7 @@ than appended to, host-side `tail -f` breaks — it re-reads from the top each
 cycle and replays the same lines forever (this happened this session; a Monitor
 had to be killed). It also makes mtime an unreliable liveness signal: during
 Run 3 the log looked frozen at 15:27 for ~25 min while unpackfs ran, then
-jumped straight to job 32. **Poll the file, do not `tail -f` it.** Writing to a
+jumped straight to job 32. **Poll the file, do not `tail -f` it.** Fix: `publish()` in `agave-collect-logs` now writes a dot-temp file and `mv`s it over the target, skipping the rename when content is unchanged (so mtime moves only when the log grows). `tail -f` still follows the old inode — keep polling. Needs one real testing-ISO build to confirm on 9p. Writing to a
 temp file and `mv`-ing atomically would fix this and is worth doing before
 Phase 5 builds a CI install test on top of this collector.
 
