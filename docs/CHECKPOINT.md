@@ -4,11 +4,14 @@ Resume point for Agave Linux development. Plan: [PLAN.md](PLAN.md). Repo:
 `github.com/acchapdev/agaveos` (push via the `git@github-personal:` SSH alias;
 run `gh auth status` first — must be acchapdev, never acchapm1).
 
-> **Note on identity:** `gh auth status` currently shows **acchapm1 as the
-> active account**, but pushes still go to the right place — the `origin`
-> remote uses the `github-personal` SSH alias, and `ssh -T git@github-personal`
-> authenticates as **acchapdev**. Verify the SSH alias, not the gh active
-> account.
+> **Note on identity:** two GitHub accounts are logged in to `gh`: acchapdev
+> (owns the repo) and acchapm1. Git pushes always go to the right place — the
+> `origin` remote uses the `github-personal` SSH alias, and
+> `ssh -T git@github-personal` authenticates as **acchapdev**. But `gh` follows
+> its *active* account, and when that was acchapm1, `gh pr create` failed with
+> `must be a collaborator`. Fix: `gh auth switch --user acchapdev` (done
+> 2026-11-02; PR #1 was then created and merged). Check `gh auth status` at the
+> start of a session — it may have been switched back.
 
 ## RESUME HERE (2026-08-06)
 
@@ -18,8 +21,8 @@ ISO both succeeded on the native runner. **Phase 3 is now fully verified — all
 three UTM runs passed.** Untracked in the working tree:
 `docs/agave-linux-handoff-2026-08-01.md` and `img/`.
 
-⚠️ **These commits have not been pushed yet** — push with
-`git push origin main` (the `github-personal` SSH alias handles identity).
+The Phase 3 verification commits were pushed to `origin/main` on 2026-11-02,
+and the collector atomic-publish fix (Debt 3) landed via PR #1 (`87afbb6`).
 
 **Run 1 (plain install) PASSED on 2026-08-06.** The user worked through every
 command in [`phase3-utm-checklist.md`](phase3-utm-checklist.md) Run 1 and all
@@ -105,11 +108,11 @@ Three steps, all requiring the user (private key generation + repo secret):
 2. `gh secret set AGAVE_GPG_PRIVATE_KEY < agave-signing-key.private.asc`
 3. Back the private key up to a password manager, then `rm -P` the local copy.
 
-⚠️ **Expect step 2 to fail with 403.** `gh` authenticates as the *active*
-account (acchapm1) while the repo is acchapdev/agaveos reached via the
-`github-personal` SSH alias — the same token-scope mismatch that already breaks
-`gh workflow run`. Run `gh repo view` first to see what `gh` thinks it is
-targeting; the secret may need to be set from the GitHub web UI instead.
+⚠️ **Step 2 failed with 403 in the past** because `gh`'s active account was
+acchapm1, not the repo owner acchapdev (same cause as the old `gh workflow run`
+403). With `gh auth switch --user acchapdev` it should work now, but this is
+**not yet verified for secrets** — only `gh pr create` has been confirmed. Run
+`gh auth status` first; if it still 403s, set the secret in the GitHub web UI.
 
 **Only after a signed `packages.yml` run has published:** uncomment
 `agave-keyring` in `iso/packages.x86_64` (~line 101). Doing it earlier breaks
@@ -279,14 +282,15 @@ makes `linux`. Left as-is.
 
 - **GPG signing key not generated** — the one real blocker, and it needs the
   user. Full detail in the RESUME section above (Debt 1): plumbing is complete,
-  `gh secret set` will likely 403 on the acchapm1/acchapdev mismatch, and
+  `gh secret set` needs `gh` switched to acchapdev (see the identity note), and
   `agave-keyring` in `iso/packages.x86_64` must stay commented until a signed
   packages run has published.
-- **Collector rewrites its log rather than appending** (Debt 3 above) — breaks
-  host-side `tail -f` and makes mtime a misleading liveness signal. Worth
-  fixing before Phase 5 builds a CI install test on this collector.
-- gh manual `workflow run` → 403 (token scope); push-triggered
-  `workflow_run` chain packages→iso works. Same root cause as the secret issue.
+- **Collector atomic publish (Debt 3) is merged but unverified on a live ISO** —
+  needs one testing-ISO build + a UTM boot to confirm `mv` over the 9p share
+  behaves. Host-side `tail -f` still won't follow it; keep polling.
+- gh manual `workflow run` → 403 was the same wrong-active-account cause; retry
+  after `gh auth switch --user acchapdev` (untested). The push-triggered
+  `workflow_run` chain packages→iso works regardless.
 - mkarchiso bootmode deprecation warnings (cosmetic rename someday).
 - Headless QEMU driver for reference: `/tmp/qmp-drive.sh` pattern (needs
   `-device qemu-xhci -device usb-tablet` for absolute mouse).
